@@ -41,7 +41,7 @@ export const config = {
     valuableChance: 0.10,
     dnaCap: 100,
     hatchThreshold: 50,
-    hatchTicks: 30,
+    hatchTicks: 3,
   },
   dinos: { starvationHealthDrop: 0.5, eatTriggerSatiation: 60 },
   feeder: { capacity: 100, refillThresholdRatio: 0.3 },

@@ -146,9 +146,6 @@ export function tickVisitors(world: World): void {
       v.y += (dy / dist) * stepPx;
     }
   }
-  if (toRemove.length > 0) {
-    console.log('[Visitors] removing', toRemove.length, 'visitors. Remaining after:', world.visitors.size - toRemove.length);
-  }
   for (const id of toRemove) world.visitors.delete(id);
 
   // Spawn cadence — after movement so new visitors are processed on the next tick.
@@ -181,8 +178,7 @@ function spawnVisitor(world: World, gate: { x: number; y: number }): void {
   world.visitors.set(v.id, v);
   changeCash(world, world.admissionPrice, 'admission');
   const target = pickViewingTarget(world);
-  const planned = target ? planVisitorTo(world, v, target) : false;
-  console.log('[Visitors] spawn', { id: v.id, at: { x: spawnX, y: spawnY }, gateCell: { x: gate.x, y: gate.y }, target, planned, pathLen: v.path.length, total: world.visitors.size });
+  if (target) planVisitorTo(world, v, target);
 }
 
 function pickViewingTarget(world: World): { x: number; y: number } | null {
