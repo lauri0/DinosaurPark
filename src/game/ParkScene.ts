@@ -233,21 +233,8 @@ export class ParkScene extends Phaser.Scene {
     const cs = config.grid.cellSize;
     const cx = Math.floor(wp.x / cs);
     const cy = Math.floor(wp.y / cs);
-    const cell = this.world.cell(cx, cy);
-    const ap = this.input.activePointer;
-    const apw = this.cameras.main.getWorldPoint(ap.x, ap.y);
-    console.log('[Carry] click', {
-      ptr: { x: p.x, y: p.y, btn: p.button },
-      activePtr: { x: ap.x, y: ap.y },
-      worldFromEvent: { x: wp.x, y: wp.y },
-      worldFromActive: { x: apw.x, y: apw.y },
-      cell: { cx, cy },
-      enclosureId: cell?.enclosureId ?? null,
-      buildingId: cell?.buildingId ?? null,
-    });
     const err = placeHatchling(this.world, cx, cy);
     if (err) {
-      console.warn('[Carry] placeHatchling failed:', err, 'at cell', { cx, cy });
       emit(Events.ToastError, { msg: err });
     } else {
       this.hideCarryCursor();

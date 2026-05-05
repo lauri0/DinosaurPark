@@ -167,6 +167,7 @@ html, body {
   border-radius: 6px;
   z-index: 200;
   font-size: 13px;
+  pointer-events: none !important;
   animation: toast-fade 2.5s forwards;
 }
 @keyframes toast-fade {
@@ -186,7 +187,7 @@ html, body {
   width: 26px; height: 26px;
   border-radius: 50%;
   border: 2px solid #fff;
-  pointer-events: none;
+  pointer-events: none !important;
   transform: translate(-50%, -50%);
   z-index: 50;
   box-shadow: 0 0 6px rgba(255,255,255,0.6);
