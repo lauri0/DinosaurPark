@@ -1,4 +1,5 @@
 import { config } from '../data/config';
+import { getSpecies } from '../data/species';
 import { recomputeEnclosures } from './Enclosures';
 import { invalidateVisitorPathing, getNextSpawnAt, setNextSpawnAt } from './Visitors';
 import type { Building, Dino, Ranger, Visitor } from './types';
@@ -28,6 +29,7 @@ interface SaveBlob {
   pendingHaul: World['pendingHaul'];
   dna: Record<string, number>;
   nextDinoNumber: Record<string, number>;
+  nextVisitorNumber?: number;
   pendingHatchlings: { id: string; speciesId: string }[];
   hatchInProgress: { hatcheryId: string; speciesId: string; finishesAtTick: number }[];
   notifications: { tick: number; msg: string }[];
@@ -71,6 +73,7 @@ export function saveWorld(world: World): void {
     pendingHaul: world.pendingHaul,
     dna: { ...world.dna },
     nextDinoNumber: { ...world.nextDinoNumber },
+    nextVisitorNumber: world.nextVisitorNumber,
     pendingHatchlings: world.pendingHatchlings.map((h) => ({ ...h })),
     hatchInProgress: world.hatchInProgress.map((h) => ({ ...h })),
     notifications: world.notifications.slice(),
@@ -118,7 +121,7 @@ export function loadWorld(): World | null {
     if (!name) {
       const num = (world.nextDinoNumber[d.speciesId] ?? 0) + 1;
       world.nextDinoNumber[d.speciesId] = num;
-      name = `${d.speciesId} ${num}`;
+      name = `${getSpecies(d.speciesId).displayName} ${num}`;
     }
     world.dinos.set(d.id, {
       ...d,
@@ -129,7 +132,23 @@ export function loadWorld(): World | null {
     });
   }
   for (const r of blob.rangers) world.rangers.set(r.id, { ...r, prevX: r.prevX ?? r.x, prevY: r.prevY ?? r.y });
-  for (const v of (blob.visitors ?? [])) world.visitors.set(v.id, { ...v, prevX: v.prevX ?? v.x, prevY: v.prevY ?? v.y, targetCell: v.targetCell ?? null });
+  if (typeof blob.nextVisitorNumber === 'number') world.nextVisitorNumber = blob.nextVisitorNumber;
+  for (const v of (blob.visitors ?? [])) {
+    let name = v.name;
+    if (!name) {
+      const num = world.nextVisitorNumber + 1;
+      world.nextVisitorNumber = num;
+      name = `Guest ${num}`;
+    }
+    world.visitors.set(v.id, {
+      ...v,
+      name,
+      arrivedAtTick: v.arrivedAtTick ?? blob.tick,
+      prevX: v.prevX ?? v.x,
+      prevY: v.prevY ?? v.y,
+      targetCell: v.targetCell ?? null,
+    });
+  }
   for (const s of blob.digSites) {
     world.digSites.set(s.id, {
       id: s.id,

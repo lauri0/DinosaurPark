@@ -16,6 +16,7 @@ import { mountNotificationLog } from './ui/NotificationLog';
 import { mountSettingsPanel } from './ui/SettingsPanel';
 import { mountParkPanel } from './ui/ParkPanel';
 import { mountDinoPanel } from './ui/DinoPanel';
+import { mountVisitorPanel } from './ui/VisitorPanel';
 import { initToasts } from './ui/toast';
 import { emit, on, Events } from './EventBus';
 import { DIG_SITES } from './data/digSites';
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
   mountSettingsPanel(getWorld);
   mountParkPanel(getWorld);
   mountDinoPanel(getWorld);
+  mountVisitorPanel(getWorld);
 
   on(Events.SaveRequested, () => {
     if (currentWorld) saveWorld(currentWorld);

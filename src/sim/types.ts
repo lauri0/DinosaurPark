@@ -56,6 +56,8 @@ export interface Ranger {
 
 export interface Visitor {
   id: string;
+  name: string;
+  arrivedAtTick: number;
   x: number;
   y: number;
   prevX: number;

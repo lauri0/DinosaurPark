@@ -36,6 +36,8 @@ export class World {
   // Per-species running counter — never decreases. Used to name newly placed dinos
   // (e.g. "Allosaurus 3" even if Allosaurus 1 and 2 are gone).
   nextDinoNumber: Record<string, number> = {};
+  // Running counter for visitor names (e.g. "Guest 257"). Never decreases.
+  nextVisitorNumber: number = 0;
   pendingHatchlings: PendingHatchling[] = [];
   hatchInProgress: HatchInProgress[] = [];
   carryHatchlingId: string | null = null;

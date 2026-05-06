@@ -211,8 +211,12 @@ function spawnVisitor(world: World, gate: { x: number; y: number }): void {
   const cs = config.grid.cellSize;
   const px = (gate.x + 0.5) * cs;
   const py = (gate.y + 0.5) * cs;
+  const num = world.nextVisitorNumber + 1;
+  world.nextVisitorNumber = num;
   const v: Visitor = {
     id: world.newId('visitor'),
+    name: `Guest ${num}`,
+    arrivedAtTick: world.tick,
     x: px,
     y: py,
     prevX: px,

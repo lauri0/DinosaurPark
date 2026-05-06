@@ -22,6 +22,7 @@ export const Events = {
   EnclosuresUpdated: 'enclosures-updated',
   EnclosureClicked: 'enclosure-clicked',
   DinoClicked: 'dino-clicked',
+  VisitorClicked: 'visitor-clicked',
   ExpeditionDispatched: 'expedition-dispatched',
   ExpeditionReturned: 'expedition-returned',
   FossilExtracted: 'fossil-extracted',

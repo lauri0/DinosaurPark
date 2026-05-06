@@ -375,10 +375,14 @@ export class ParkScene extends Phaser.Scene {
     });
 
     const pickRadius = 12 / cam.zoom;
-    // Dinos take precedence over visitors when overlapping.
+    // Dinos take precedence over visitors when overlapping. Pick against the
+    // rendered (lerped) position so clicks match what the player sees.
+    const a = this.lerpAlpha;
     let bestDino: { id: string; dist: number } | null = null;
     for (const d of this.world.dinos.values()) {
-      const dist = Math.hypot(d.x - wp.x, d.y - wp.y);
+      const rx = d.prevX + (d.x - d.prevX) * a;
+      const ry = d.prevY + (d.y - d.prevY) * a;
+      const dist = Math.hypot(rx - wp.x, ry - wp.y);
       if (dist < pickRadius && (!bestDino || dist < bestDino.dist)) {
         bestDino = { id: d.id, dist };
       }
@@ -391,7 +395,9 @@ export class ParkScene extends Phaser.Scene {
 
     let best: { id: string; dist: number } | null = null;
     for (const v of this.world.visitors.values()) {
-      const dist = Math.hypot(v.x - wp.x, v.y - wp.y);
+      const rx = v.prevX + (v.x - v.prevX) * a;
+      const ry = v.prevY + (v.y - v.prevY) * a;
+      const dist = Math.hypot(rx - wp.x, ry - wp.y);
       if (dist < pickRadius && (!best || dist < best.dist)) {
         best = { id: v.id, dist };
       }
@@ -409,6 +415,7 @@ export class ParkScene extends Phaser.Scene {
         idleRemaining: v.viewIdleRemaining,
         enclosuresViewed: v.enclosuresViewed,
       });
+      emit(Events.VisitorClicked, { visitorId: v.id });
     } else {
       this.selectedVisitorId = null;
     }

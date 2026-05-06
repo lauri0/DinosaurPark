@@ -55,30 +55,42 @@ function stopRefresh(): void {
 
 function populate(panel: HTMLElement, world: World, dino: Dino): void {
   const body = panel.querySelector('[data-body]') as HTMLElement;
-  body.innerHTML = '';
   const species = getSpecies(dino.speciesId);
 
-  // Portrait — falls back to a colored circle if image is missing.
-  const portraitWrap = document.createElement('div');
-  portraitWrap.style.cssText = 'display:flex;justify-content:center;margin-bottom:10px;';
-  const img = document.createElement('img');
-  img.src = species.portraitPath;
-  img.alt = species.displayName;
-  img.style.cssText = `width:120px;height:120px;border-radius:8px;object-fit:cover;background:${species.color};`;
-  img.addEventListener('error', () => {
-    img.style.display = 'none';
-    fallback.style.display = 'block';
-  });
-  const fallback = document.createElement('div');
-  fallback.style.cssText = `width:120px;height:120px;border-radius:60px;background:${species.color};display:none;`;
-  portraitWrap.appendChild(img);
-  portraitWrap.appendChild(fallback);
-  body.appendChild(portraitWrap);
+  let stats = body.querySelector('[data-stats]') as HTMLElement | null;
+  if (!stats) {
+    body.innerHTML = '';
 
-  // Stats rows.
-  addRow(body, 'Species', species.displayName);
-  addRow(body, 'Age', formatAge(world.tick - dino.birthTick));
-  addRow(body, 'Satiation', `${Math.round(dino.satiation)}%`);
+    // Portrait — show a colored circle by default and only swap to the image
+    // once it actually loads. This avoids flickering a colored square while
+    // the <img> is loading or before the error event fires for a missing png.
+    const portraitWrap = document.createElement('div');
+    portraitWrap.style.cssText = 'display:flex;justify-content:center;margin-bottom:10px;position:relative;width:120px;height:120px;margin-left:auto;margin-right:auto;';
+    const fallback = document.createElement('div');
+    fallback.style.cssText = `width:120px;height:120px;border-radius:60px;background:${species.color};`;
+    portraitWrap.appendChild(fallback);
+    const img = document.createElement('img');
+    img.alt = species.displayName;
+    img.style.cssText = 'width:120px;height:120px;border-radius:60px;object-fit:cover;display:none;position:absolute;left:0;top:0;';
+    img.addEventListener('load', () => {
+      if (img.naturalWidth > 0) {
+        img.style.display = 'block';
+        fallback.style.display = 'none';
+      }
+    });
+    img.src = species.portraitPath;
+    portraitWrap.appendChild(img);
+    body.appendChild(portraitWrap);
+
+    stats = document.createElement('div');
+    stats.setAttribute('data-stats', '');
+    body.appendChild(stats);
+  }
+
+  stats.innerHTML = '';
+  addRow(stats, 'Species', species.displayName);
+  addRow(stats, 'Age', formatAge(world.tick - dino.birthTick));
+  addRow(stats, 'Satiation', `${Math.round(dino.satiation)}%`);
 }
 
 function addRow(body: HTMLElement, label: string, value: string): void {
