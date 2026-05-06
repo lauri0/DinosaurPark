@@ -1,5 +1,7 @@
 import { config } from '../data/config';
 import { getSpecies } from '../data/species';
+import { getFacilityDef } from '../data/facilities';
+import type { BuildingType } from '../data/buildings';
 import { recomputeEnclosures } from './Enclosures';
 import { invalidateVisitorPathing, getNextSpawnAt, setNextSpawnAt } from './Visitors';
 import type { Building, Dino, Ranger, Visitor } from './types';
@@ -30,6 +32,11 @@ interface SaveBlob {
   dna: Record<string, number>;
   nextDinoNumber: Record<string, number>;
   nextVisitorNumber?: number;
+  nextFacilityNumber?: Partial<Record<BuildingType, number>>;
+  lastUpkeepBilledAtTick?: number;
+  admissionRevenueTotal?: number;
+  admissionRevenueThisMonth?: number;
+  admissionRevenueLastMonth?: number;
   pendingHatchlings: { id: string; speciesId: string }[];
   hatchInProgress: { hatcheryId: string; speciesId: string; finishesAtTick: number }[];
   notifications: { tick: number; msg: string }[];
@@ -74,6 +81,11 @@ export function saveWorld(world: World): void {
     dna: { ...world.dna },
     nextDinoNumber: { ...world.nextDinoNumber },
     nextVisitorNumber: world.nextVisitorNumber,
+    nextFacilityNumber: { ...world.nextFacilityNumber },
+    lastUpkeepBilledAtTick: world.lastUpkeepBilledAtTick,
+    admissionRevenueTotal: world.admissionRevenueTotal,
+    admissionRevenueThisMonth: world.admissionRevenueThisMonth,
+    admissionRevenueLastMonth: world.admissionRevenueLastMonth,
     pendingHatchlings: world.pendingHatchlings.map((h) => ({ ...h })),
     hatchInProgress: world.hatchInProgress.map((h) => ({ ...h })),
     notifications: world.notifications.slice(),
@@ -106,8 +118,42 @@ export function loadWorld(): World | null {
     const c = world.cell(x, y);
     if (c) c.isPath = true;
   }
+  if (blob.nextFacilityNumber) world.nextFacilityNumber = { ...blob.nextFacilityNumber };
+  world.lastUpkeepBilledAtTick = blob.lastUpkeepBilledAtTick ?? blob.tick;
+  world.admissionRevenueTotal = blob.admissionRevenueTotal ?? 0;
+  world.admissionRevenueThisMonth = blob.admissionRevenueThisMonth ?? 0;
+  world.admissionRevenueLastMonth = blob.admissionRevenueLastMonth ?? 0;
   for (const b of blob.buildings) {
-    world.buildings.set(b.id, { ...b });
+    const copy = { ...b };
+    const def = getFacilityDef(b.type);
+    if (def) {
+      if (!copy.facility) {
+        const num = (world.nextFacilityNumber[b.type] ?? 0) + 1;
+        world.nextFacilityNumber[b.type] = num;
+        copy.facility = {
+          number: num,
+          builtAtTick: blob.tick,
+          priceTier: def.defaultPriceTier,
+          revenueTotal: 0,
+          upkeepPaidTotal: 0,
+          revenueThisMonth: 0,
+          revenueLastMonth: 0,
+          upkeepLastMonth: 0,
+        };
+      } else {
+        copy.facility = {
+          number: copy.facility.number,
+          builtAtTick: copy.facility.builtAtTick,
+          priceTier: copy.facility.priceTier,
+          revenueTotal: copy.facility.revenueTotal ?? 0,
+          upkeepPaidTotal: copy.facility.upkeepPaidTotal ?? 0,
+          revenueThisMonth: copy.facility.revenueThisMonth ?? 0,
+          revenueLastMonth: copy.facility.revenueLastMonth ?? 0,
+          upkeepLastMonth: copy.facility.upkeepLastMonth ?? 0,
+        };
+      }
+    }
+    world.buildings.set(b.id, copy);
     for (let dy = 0; dy < b.height; dy++) {
       for (let dx = 0; dx < b.width; dx++) {
         const c = world.cell(b.x + dx, b.y + dy);
@@ -147,6 +193,8 @@ export function loadWorld(): World | null {
       prevX: v.prevX ?? v.x,
       prevY: v.prevY ?? v.y,
       targetCell: v.targetCell ?? null,
+      drink: v.drink ?? config.visitors.drinkMax,
+      targetDrinkStandId: v.targetDrinkStandId ?? null,
     });
   }
   for (const s of blob.digSites) {

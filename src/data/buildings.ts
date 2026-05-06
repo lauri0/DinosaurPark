@@ -3,7 +3,8 @@ export type BuildingType =
   | 'Feeder'
   | 'RangerStation'
   | 'FossilCentre'
-  | 'Hatchery';
+  | 'Hatchery'
+  | 'DrinkStand';
 
 export interface BuildingDef {
   type: BuildingType;
@@ -11,7 +12,7 @@ export interface BuildingDef {
   width: number;
   height: number;
   cost: number;
-  glyph: 'gate' | 'flask' | 'cross' | 'bone' | 'egg';
+  glyph: 'gate' | 'flask' | 'cross' | 'bone' | 'egg' | 'cup';
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
@@ -55,6 +56,14 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     cost: 2000,
     glyph: 'egg',
   },
+  DrinkStand: {
+    type: 'DrinkStand',
+    displayName: 'Drink Stand',
+    width: 1,
+    height: 1,
+    cost: 150,
+    glyph: 'cup',
+  },
 };
 
 export const BUILDING_TYPES: BuildingType[] = [
@@ -63,4 +72,5 @@ export const BUILDING_TYPES: BuildingType[] = [
   'RangerStation',
   'FossilCentre',
   'Hatchery',
+  'DrinkStand',
 ];

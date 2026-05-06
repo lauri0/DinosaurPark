@@ -10,6 +10,7 @@ const COLORS: Record<BuildingType, number> = {
   RangerStation: 0x3a4a6a,
   FossilCentre: 0x6a4a8a,
   Hatchery: 0x8a6a3a,
+  DrinkStand: 0x3a8a8a,
 };
 
 export class BuildingRenderer {
@@ -71,7 +72,7 @@ export class BuildingRenderer {
 
 export function drawGlyph(
   g: Phaser.GameObjects.Graphics,
-  kind: 'gate' | 'flask' | 'cross' | 'bone' | 'egg',
+  kind: 'gate' | 'flask' | 'cross' | 'bone' | 'egg' | 'cup',
   cx: number,
   cy: number,
   size: number,
@@ -102,6 +103,13 @@ export function drawGlyph(
       break;
     case 'egg':
       g.fillEllipse(cx, cy, size * 1.2, size * 1.6);
+      break;
+    case 'cup':
+      g.lineBetween(cx - size * 0.6, cy - size * 0.7, cx - size * 0.4, cy + size * 0.8);
+      g.lineBetween(cx + size * 0.6, cy - size * 0.7, cx + size * 0.4, cy + size * 0.8);
+      g.lineBetween(cx - size * 0.4, cy + size * 0.8, cx + size * 0.4, cy + size * 0.8);
+      g.lineBetween(cx - size * 0.6, cy - size * 0.7, cx + size * 0.6, cy - size * 0.7);
+      g.strokeCircle(cx + size * 0.75, cy, size * 0.3);
       break;
   }
 }

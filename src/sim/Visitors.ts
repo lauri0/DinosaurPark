@@ -1,7 +1,8 @@
 import { config } from '../data/config';
 import type { World } from './World';
 import { changeCash } from './Economy';
-import type { Visitor } from './types';
+import { getFacilityDef } from '../data/facilities';
+import type { Building, Visitor } from './types';
 
 let nextSpawnAt = 30;
 
@@ -120,9 +121,58 @@ export function tickVisitors(world: World): void {
   const toRemove: string[] = [];
 
   for (const v of world.visitors.values()) {
+    v.drink = Math.max(0, v.drink - config.visitors.drinkDecayPerTick);
+
+    if (
+      v.drink <= config.visitors.drinkThreshold &&
+      v.targetDrinkStandId == null &&
+      (v.state === 'arriving' || v.state === 'viewing')
+    ) {
+      const target = findClosestDrinkStand(world, v);
+      if (target && planPath(world, v, target.cell)) {
+        v.state = 'going-to-drink';
+        v.targetDrinkStandId = target.stand.id;
+        v.viewIdleRemaining = 0;
+      }
+    }
+
     const pathDone = v.path.length === 0 || v.pathIdx >= v.path.length;
 
     if (pathDone) {
+      if (v.state === 'going-to-drink') {
+        v.drink = config.visitors.drinkMax;
+        const stand = v.targetDrinkStandId ? world.buildings.get(v.targetDrinkStandId) : null;
+        if (stand && stand.facility) {
+          const def = getFacilityDef(stand.type);
+          if (def) {
+            const price = def.prices[stand.facility.priceTier];
+            stand.facility.revenueTotal += price;
+            stand.facility.revenueThisMonth += price;
+            changeCash(world, price, `${def.facilityName} sale`);
+          }
+        }
+        v.targetDrinkStandId = null;
+        v.state = 'drinking';
+        v.viewIdleRemaining = config.visitors.drinkIdleTicks;
+      }
+
+      if (v.state === 'drinking') {
+        if (v.viewIdleRemaining > 0) {
+          v.viewIdleRemaining--;
+          continue;
+        }
+        if (v.enclosuresViewed >= config.visitors.enclosuresPerVisit) {
+          v.state = 'leaving';
+        } else {
+          const spot = pickSpot(world, v);
+          if (spot && planPath(world, v, spot)) {
+            v.state = 'arriving';
+            continue;
+          }
+          v.state = 'leaving';
+        }
+      }
+
       if (v.state === 'arriving') {
         v.state = 'viewing';
         v.viewIdleRemaining = world.rng.intRange(5, 20);
@@ -227,12 +277,59 @@ function spawnVisitor(world: World, gate: { x: number; y: number }): void {
     pathIdx: 0,
     viewIdleRemaining: 0,
     targetCell: null,
+    drink: config.visitors.drinkMax,
+    targetDrinkStandId: null,
   };
   world.visitors.set(v.id, v);
   changeCash(world, world.admissionPrice, 'admission');
+  world.admissionRevenueTotal += world.admissionPrice;
+  world.admissionRevenueThisMonth += world.admissionPrice;
   const spot = pickSpot(world);
   const ok = spot ? planPath(world, v, spot) : false;
   console.log(`[Visitors] spawned ${v.id} at gate(${gate.x},${gate.y}), spot=${JSON.stringify(spot)}, pathOk=${ok}, pathLen=${v.path.length}`);
+}
+
+function findClosestDrinkStand(
+  world: World,
+  v: Visitor,
+): { stand: Building; cell: { x: number; y: number } } | null {
+  const cs = config.grid.cellSize;
+  const sx = Math.floor(v.x / cs);
+  const sy = Math.floor(v.y / cs);
+  const candidates: { stand: Building; cell: { x: number; y: number }; manhattan: number }[] = [];
+  for (const b of world.buildings.values()) {
+    if (b.type !== 'DrinkStand') continue;
+    let best: { x: number; y: number } | null = null;
+    let bestDist = Infinity;
+    for (let dy = 0; dy < b.height; dy++) {
+      for (let dx = 0; dx < b.width; dx++) {
+        const tx = b.x + dx;
+        const ty = b.y + dy;
+        const neighbors = [
+          { x: tx - 1, y: ty },
+          { x: tx + 1, y: ty },
+          { x: tx, y: ty - 1 },
+          { x: tx, y: ty + 1 },
+        ];
+        for (const n of neighbors) {
+          if (!walkable(world, n.x, n.y)) continue;
+          const d = Math.abs(n.x - sx) + Math.abs(n.y - sy);
+          if (d < bestDist) {
+            bestDist = d;
+            best = n;
+          }
+        }
+      }
+    }
+    if (best) candidates.push({ stand: b, cell: best, manhattan: bestDist });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.manhattan - b.manhattan);
+  for (const c of candidates) {
+    const path = bfsPath(world, sx, sy, c.cell.x, c.cell.y);
+    if (path) return { stand: c.stand, cell: c.cell };
+  }
+  return null;
 }
 
 function planPath(

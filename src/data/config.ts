@@ -1,14 +1,14 @@
 export const config = {
   grid: { cols: 80, rows: 60, cellSize: 32 },
   camera: { minZoom: 0.5, maxZoom: 2.0 },
-  time: { tickMs: 1000, dayTicks: 6, speeds: [0, 1, 2, 3] as const },
+  time: { tickMs: 1000, dayTicks: 6, monthDays: 30, speeds: [0, 1, 2, 3] as const },
   economy: {
     startingCash: 10_000,
     admissionDefault: 10,
     admissionMin: 0,
     admissionMax: 50,
     foodCostPerUnit: 0.5,
-    rangerWagePerDay: 30,
+    rangerWagePerMonth: 30,
     valuableSalePrice: 500,
     fossilSalePerDnaPercent: 5,
     digSiteUnlockCosts: [2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000],
@@ -19,6 +19,10 @@ export const config = {
     priceFactorSlope: 0.05,
     enclosuresPerVisit: 3,
     viewIdleTicks: 4,
+    drinkMax: 100,
+    drinkDecayPerTick: 1.5,
+    drinkThreshold: 30,
+    drinkIdleTicks: 3,
   },
   expedition: {
     qualityToFossilCount: {
@@ -64,6 +68,7 @@ export const config = {
       RangerStation: '#3a4a6a',
       FossilCentre: '#6a4a8a',
       Hatchery: '#8a6a3a',
+      DrinkStand: '#3a8a8a',
     } as const,
   },
 } as const;

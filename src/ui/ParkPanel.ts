@@ -9,6 +9,9 @@ export function mountParkPanel(getWorld: () => World): void {
   const open = () => render(getWorld());
   on('open-park', open);
   on<{ buildingId: string | null }>(Events.EntranceGateClicked, open);
+  on(Events.TickAdvanced, () => {
+    if (panel && document.body.contains(panel)) populate(panel, getWorld());
+  });
 }
 
 function render(world: World): void {
@@ -18,7 +21,13 @@ function render(world: World): void {
     return;
   }
   panel = makePanel('Park');
+  populate(panel, world);
+  openPanel(panel);
+}
+
+function populate(panel: HTMLElement, world: World): void {
   const body = panel.querySelector('[data-body]') as HTMLElement;
+  body.innerHTML = '';
 
   const slider = document.createElement('div');
   slider.className = 'slider-row';
@@ -35,5 +44,18 @@ function render(world: World): void {
   });
   body.appendChild(slider);
 
-  openPanel(panel);
+  addRow(body, 'Admission revenue (total)', formatMoney(world.admissionRevenueTotal));
+  addRow(body, 'Admission revenue (last month)', formatMoney(world.admissionRevenueLastMonth));
+}
+
+function addRow(body: HTMLElement, label: string, value: string): void {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<div>${label}</div><div style="color:#cfcf">${value}</div>`;
+  body.appendChild(row);
+}
+
+function formatMoney(n: number): string {
+  const sign = n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(n).toLocaleString()}`;
 }

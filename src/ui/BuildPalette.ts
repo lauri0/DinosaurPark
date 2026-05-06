@@ -8,7 +8,7 @@ const MODES: { mode: BuildMode; label: string }[] = [
   { mode: 'path', label: 'Path' },
   { mode: 'fence', label: 'Fence' },
   { mode: 'gate', label: 'Gate' },
-  ...(['EntranceGate', 'Feeder', 'RangerStation', 'FossilCentre', 'Hatchery'] as BuildingType[]).map((t) => ({
+  ...(['EntranceGate', 'Feeder', 'RangerStation', 'FossilCentre', 'Hatchery', 'DrinkStand'] as BuildingType[]).map((t) => ({
     mode: `building:${t}` as BuildMode,
     label: BUILDINGS[t].displayName,
   })),

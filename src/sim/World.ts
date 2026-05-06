@@ -1,5 +1,6 @@
 import { config } from '../data/config';
 import { BUILDINGS, type BuildingType } from '../data/buildings';
+import { getFacilityDef } from '../data/facilities';
 import type {
   ActiveExpedition,
   Building,
@@ -38,6 +39,13 @@ export class World {
   nextDinoNumber: Record<string, number> = {};
   // Running counter for visitor names (e.g. "Guest 257"). Never decreases.
   nextVisitorNumber: number = 0;
+  // Per-building-type counter for naming facilities (e.g., "Drink Stand 3"). Never decreases.
+  nextFacilityNumber: Partial<Record<BuildingType, number>> = {};
+  // Tick at which the most recent monthly upkeep was billed (0 = never).
+  lastUpkeepBilledAtTick: number = 0;
+  admissionRevenueTotal: number = 0;
+  admissionRevenueThisMonth: number = 0;
+  admissionRevenueLastMonth: number = 0;
   pendingHatchlings: PendingHatchling[] = [];
   hatchInProgress: HatchInProgress[] = [];
   carryHatchlingId: string | null = null;
@@ -161,6 +169,21 @@ export class World {
       height: def.height,
       food: type === 'Feeder' ? config.feeder.capacity : undefined,
     };
+    const facilityDef = getFacilityDef(type);
+    if (facilityDef) {
+      const num = (this.nextFacilityNumber[type] ?? 0) + 1;
+      this.nextFacilityNumber[type] = num;
+      b.facility = {
+        number: num,
+        builtAtTick: this.tick,
+        priceTier: facilityDef.defaultPriceTier,
+        revenueTotal: 0,
+        upkeepPaidTotal: 0,
+        revenueThisMonth: 0,
+        revenueLastMonth: 0,
+        upkeepLastMonth: 0,
+      };
+    }
     this.buildings.set(id, b);
     for (let dy = 0; dy < def.height; dy++) {
       for (let dx = 0; dx < def.width; dx++) {

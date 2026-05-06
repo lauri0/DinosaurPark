@@ -481,7 +481,8 @@ export class ParkScene extends Phaser.Scene {
     this.fenceRenderer.render(this.world);
     this.buildingRenderer.render(this.world, (b) => {
       if (this.buildMode !== 'cursor') return;
-      if (b.type === 'Feeder') emit(Events.FeederClicked, { buildingId: b.id });
+      if (b.facility) emit(Events.FacilityClicked, { buildingId: b.id });
+      else if (b.type === 'Feeder') emit(Events.FeederClicked, { buildingId: b.id });
       else if (b.type === 'RangerStation') emit(Events.RangerStationClicked, { buildingId: b.id });
       else if (b.type === 'FossilCentre') emit(Events.FossilCentreClicked, { buildingId: b.id });
       else if (b.type === 'Hatchery') emit(Events.HatcheryClicked, { buildingId: b.id });

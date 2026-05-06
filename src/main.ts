@@ -12,6 +12,7 @@ import { mountDNAPanel } from './ui/DNAPanel';
 import { mountHatcheryPanel } from './ui/HatcheryPanel';
 import { mountRangerPanel } from './ui/RangerPanel';
 import { mountFeederPanel } from './ui/FeederPanel';
+import { mountFacilityPanel } from './ui/FacilityPanel';
 import { mountNotificationLog } from './ui/NotificationLog';
 import { mountSettingsPanel } from './ui/SettingsPanel';
 import { mountParkPanel } from './ui/ParkPanel';
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
   mountHatcheryPanel(getWorld);
   mountRangerPanel(getWorld);
   mountFeederPanel(getWorld);
+  mountFacilityPanel(getWorld);
   mountNotificationLog(getWorld);
   mountSettingsPanel(getWorld);
   mountParkPanel(getWorld);

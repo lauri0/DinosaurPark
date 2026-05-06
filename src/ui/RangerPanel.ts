@@ -65,7 +65,7 @@ function populate(panel: HTMLElement, world: World): void {
   }
   const remaining = config.ranger.maxPerStation - rangers.length;
   const hireBtn = document.createElement('button');
-  hireBtn.textContent = `Hire Ranger ($${config.economy.rangerWagePerDay}/day)`;
+  hireBtn.textContent = `Hire Ranger ($${config.economy.rangerWagePerMonth}/month)`;
   hireBtn.disabled = remaining <= 0;
   hireBtn.style.marginTop = '8px';
   hireBtn.addEventListener('click', () => {

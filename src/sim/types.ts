@@ -1,5 +1,17 @@
 import type { BuildingType } from '../data/buildings';
+import type { PriceTier } from '../data/facilities';
 import type { Quality } from '../data/config';
+
+export interface FacilityState {
+  number: number;
+  builtAtTick: number;
+  priceTier: PriceTier;
+  revenueTotal: number;
+  upkeepPaidTotal: number;
+  revenueThisMonth: number;
+  revenueLastMonth: number;
+  upkeepLastMonth: number;
+}
 
 export interface Cell {
   buildingId: string | null;
@@ -15,6 +27,7 @@ export interface Building {
   width: number;
   height: number;
   food?: number;
+  facility?: FacilityState;
 }
 
 export interface Enclosure {
@@ -62,12 +75,14 @@ export interface Visitor {
   y: number;
   prevX: number;
   prevY: number;
-  state: 'arriving' | 'viewing' | 'leaving';
+  state: 'arriving' | 'viewing' | 'leaving' | 'going-to-drink' | 'drinking';
   enclosuresViewed: number;
   path: { x: number; y: number }[];
   pathIdx: number;
   viewIdleRemaining: number;
   targetCell: { x: number; y: number } | null;
+  drink: number;
+  targetDrinkStandId: string | null;
 }
 
 export interface DigSiteState {

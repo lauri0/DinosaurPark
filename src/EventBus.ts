@@ -47,6 +47,7 @@ export const Events = {
   FossilCentreClicked: 'fossil-centre-clicked',
   HatcheryClicked: 'hatchery-clicked',
   EntranceGateClicked: 'entrance-gate-clicked',
+  FacilityClicked: 'facility-clicked',
   ToastError: 'toast-error',
   TickAdvanced: 'tick-advanced',
   StateReset: 'state-reset',
