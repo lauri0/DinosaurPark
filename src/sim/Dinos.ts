@@ -6,6 +6,21 @@ import type { World } from './World';
 export function tickDinos(world: World): void {
   const cs = config.grid.cellSize;
   const toRemove: string[] = [];
+
+  // Determine the current eater at each feeder (one dino per feeder).
+  // First dino in iteration order that's already at the feeder claims it.
+  const feederOwner = new Map<string, string>();
+  for (const d of world.dinos.values()) {
+    if (!d.eatingFeederId) continue;
+    if (feederOwner.has(d.eatingFeederId)) continue;
+    const f = world.buildings.get(d.eatingFeederId);
+    if (!f) continue;
+    const fc = world.buildingCenterPx(f);
+    if (Math.hypot(fc.x - d.x, fc.y - d.y) < cs * 0.6) {
+      feederOwner.set(d.eatingFeederId, d.id);
+    }
+  }
+
   for (const d of world.dinos.values()) {
     if (d.enclosureId === null) continue; // carried (shouldn't happen with current model)
     const sp = getSpecies(d.speciesId);
@@ -39,6 +54,13 @@ export function tickDinos(world: World): void {
         const dist = Math.hypot(dx, dy);
         const arrived = dist < cs * 0.6;
         if (arrived) {
+          // Only one dino can eat at a feeder at a time. Others wait nearby.
+          const owner = feederOwner.get(feeder.id);
+          if (owner && owner !== d.id) {
+            // Stand by; don't move, don't eat. Will retry next tick.
+            continue;
+          }
+          if (!owner) feederOwner.set(feeder.id, d.id);
           const eat = Math.min(sp.eatAmount * 0.01, feeder.food ?? 0);
           feeder.food = (feeder.food ?? 0) - eat;
           d.satiation = Math.min(100, d.satiation + (eat * 100) / sp.eatAmount);
@@ -46,6 +68,7 @@ export function tickDinos(world: World): void {
             // Fully sated — leave the feeder; will only return when hungry again.
             d.eatingFeederId = null;
             d.waypoint = null;
+            feederOwner.delete(feeder.id);
           }
         } else {
           stepToward(d, fc, sp.baseSpeed);
