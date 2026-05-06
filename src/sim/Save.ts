@@ -177,7 +177,19 @@ export function loadWorld(): World | null {
       prevY: d.prevY ?? d.y,
     });
   }
-  for (const r of blob.rangers) world.rangers.set(r.id, { ...r, prevX: r.prevX ?? r.x, prevY: r.prevY ?? r.y });
+  for (const r of blob.rangers) {
+    world.rangers.set(r.id, {
+      ...r,
+      prevX: r.prevX ?? r.x,
+      prevY: r.prevY ?? r.y,
+      taskFeederId: r.taskFeederId ?? null,
+      path: r.path ?? [],
+      pathIdx: r.pathIdx ?? 0,
+      goalCell: r.goalCell ?? null,
+      // Force re-plan against freshly-recomputed walkability.
+      pathEpoch: -1,
+    });
+  }
   if (typeof blob.nextVisitorNumber === 'number') world.nextVisitorNumber = blob.nextVisitorNumber;
   for (const v of (blob.visitors ?? [])) {
     let name = v.name;

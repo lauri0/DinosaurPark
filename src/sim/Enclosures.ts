@@ -110,6 +110,15 @@ export function recomputeEnclosures(world: World): void {
     const c = world.cell(cx, cy);
     d.enclosureId = c?.enclosureId ?? null;
   }
+
+  // Refresh staff walkability for every cell — enclosure membership just changed
+  // and path/building data may have been edited since the last pass.
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      world.refreshStaffWalkableAt(x, y);
+    }
+  }
+  world.staffPathEpoch++;
 }
 
 export function enclosureBounds(enc: Enclosure): {

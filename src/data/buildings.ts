@@ -13,6 +13,7 @@ export interface BuildingDef {
   height: number;
   cost: number;
   glyph: 'gate' | 'flask' | 'cross' | 'bone' | 'egg' | 'cup';
+  staffWalkable?: boolean;
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
@@ -39,6 +40,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     height: 2,
     cost: 800,
     glyph: 'cross',
+    staffWalkable: true,
   },
   FossilCentre: {
     type: 'FossilCentre',
@@ -65,6 +67,10 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     glyph: 'cup',
   },
 };
+
+export function isStaffWalkableBuilding(type: BuildingType): boolean {
+  return BUILDINGS[type].staffWalkable === true;
+}
 
 export const BUILDING_TYPES: BuildingType[] = [
   'EntranceGate',

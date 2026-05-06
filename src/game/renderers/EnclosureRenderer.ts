@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { config } from '../../data/config';
 import { enclosureBounds, enclosureCentroid } from '../../sim/Enclosures';
 import { getSpecies } from '../../data/species';
+import { emit, Events } from '../../EventBus';
 import type { World } from '../../sim/World';
 
 export class EnclosureRenderer {
@@ -46,6 +47,11 @@ export class EnclosureRenderer {
       if (!div) {
         div = document.createElement('div');
         div.className = 'enclosure-label';
+        const encId = enc.id;
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          emit(Events.EnclosureClicked, { enclosureId: encId });
+        });
         this.uiRoot.appendChild(div);
         this.labels.set(enc.id, div);
       }

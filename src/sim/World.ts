@@ -1,5 +1,5 @@
 import { config } from '../data/config';
-import { BUILDINGS, type BuildingType } from '../data/buildings';
+import { BUILDINGS, isStaffWalkableBuilding, type BuildingType } from '../data/buildings';
 import { getFacilityDef } from '../data/facilities';
 import type {
   ActiveExpedition,
@@ -53,6 +53,9 @@ export class World {
   cash: number = config.economy.startingCash;
   admissionPrice: number = config.economy.admissionDefault;
   tick = 0;
+  // Bumped any time staff-walkable terrain or edge passability changes.
+  // Rangers compare their cached pathEpoch against this to decide whether to re-plan.
+  staffPathEpoch: number = 0;
   timeSpeed: 0 | 1 | 2 | 3 = 1;
   notifications: NotificationEntry[] = [];
 
@@ -113,6 +116,7 @@ export class World {
     } else {
       this.fenceEdges.delete(edgeKey);
     }
+    this.staffPathEpoch++;
   }
   toggleGate(edgeKey: FenceEdgeKey, on: boolean): void {
     if (on) {
@@ -121,6 +125,19 @@ export class World {
     } else {
       this.gateEdges.delete(edgeKey);
     }
+    this.staffPathEpoch++;
+  }
+
+  // Recompute walkableForStaff for a single cell based on current state.
+  refreshStaffWalkableAt(x: number, y: number): void {
+    const c = this.cell(x, y);
+    if (!c) return;
+    let walkable = c.isPath || c.enclosureId !== null;
+    if (!walkable && c.buildingId) {
+      const b = this.buildings.get(c.buildingId);
+      if (b && isStaffWalkableBuilding(b.type)) walkable = true;
+    }
+    c.walkableForStaff = walkable;
   }
 
   // ---- Path / Building ----
@@ -129,6 +146,8 @@ export class World {
     if (!c) return;
     if (on && c.buildingId) return;
     c.isPath = on;
+    this.refreshStaffWalkableAt(x, y);
+    this.staffPathEpoch++;
   }
 
   canPlaceBuilding(type: BuildingType, x: number, y: number): boolean {
@@ -191,6 +210,14 @@ export class World {
         c.buildingId = id;
       }
     }
+    if (def.staffWalkable) {
+      for (let dy = 0; dy < def.height; dy++) {
+        for (let dx = 0; dx < def.width; dx++) {
+          this.refreshStaffWalkableAt(x + dx, y + dy);
+        }
+      }
+    }
+    this.staffPathEpoch++;
     return b;
   }
 
@@ -204,6 +231,12 @@ export class World {
       }
     }
     this.buildings.delete(id);
+    for (let dy = 0; dy < b.height; dy++) {
+      for (let dx = 0; dx < b.width; dx++) {
+        this.refreshStaffWalkableAt(b.x + dx, b.y + dy);
+      }
+    }
+    this.staffPathEpoch++;
   }
 
   buildingCenterPx(b: Building): { x: number; y: number } {
@@ -233,7 +266,7 @@ function makeEmptyGrid(): Cell[][] {
   for (let y = 0; y < config.grid.rows; y++) {
     const row: Cell[] = [];
     for (let x = 0; x < config.grid.cols; x++) {
-      row.push({ buildingId: null, isPath: false, enclosureId: null });
+      row.push({ buildingId: null, isPath: false, enclosureId: null, walkableForStaff: false });
     }
     grid.push(row);
   }

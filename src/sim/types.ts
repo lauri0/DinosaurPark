@@ -17,6 +17,7 @@ export interface Cell {
   buildingId: string | null;
   isPath: boolean;
   enclosureId: string | null;
+  walkableForStaff: boolean;
 }
 
 export interface Building {
@@ -62,9 +63,12 @@ export interface Ranger {
   y: number;
   prevX: number;
   prevY: number;
-  state: 'idle' | 'walking-to-feeder';
+  state: 'idle' | 'walking-to-feeder' | 'wandering' | 'returning-to-station' | 'stranded';
   taskFeederId?: string | null;
-  waypoint: { x: number; y: number } | null;
+  path: { x: number; y: number }[];
+  pathIdx: number;
+  goalCell: { x: number; y: number } | null;
+  pathEpoch: number;
 }
 
 export interface Visitor {
