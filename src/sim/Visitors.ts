@@ -1,91 +1,130 @@
-import EasyStar from 'easystarjs';
-import { emit, Events } from '../EventBus';
 import { config } from '../data/config';
 import type { World } from './World';
 import { changeCash } from './Economy';
 import type { Visitor } from './types';
 
-let nextSpawnAt = 30; // first visitor possibility
-let easystar: EasyStar.js | null = null;
+let nextSpawnAt = 30;
 
-function buildEasystar(world: World): EasyStar.js {
-  const cols = config.grid.cols;
-  const rows = config.grid.rows;
-  const grid: number[][] = [];
-  for (let y = 0; y < rows; y++) {
-    const row: number[] = [];
-    for (let x = 0; x < cols; x++) {
-      row.push(walkableForVisitor(world, x, y) ? 0 : 1);
-    }
-    grid.push(row);
-  }
-  const es = new EasyStar.js();
-  es.setGrid(grid);
-  es.setAcceptableTiles([0]);
-  es.disableDiagonals();
-  return es;
+// Path cells directly adjacent (4-way) to an enclosure cell.
+let viewingSpots: { x: number; y: number }[] = [];
+let viewingSpotsBuilt = false;
+
+export function invalidateVisitorPathing(): void {
+  viewingSpotsBuilt = false;
 }
 
-function walkableForVisitor(world: World, x: number, y: number): boolean {
+function walkable(world: World, x: number, y: number): boolean {
   const c = world.cell(x, y);
   if (!c) return false;
   if (c.buildingId) {
     const b = world.buildings.get(c.buildingId);
-    if (b?.type === 'EntranceGate') return true;
-    return false;
+    return b?.type === 'EntranceGate';
   }
-  if (c.isPath) return true;
-  // Viewing cells: cells within 2 of an enclosure (and not in one).
-  if (c.enclosureId) return false;
-  if (isViewingCell(world, x, y)) return true;
-  return false;
+  return c.isPath;
 }
 
-function isViewingCell(world: World, x: number, y: number): boolean {
-  for (let dy = -2; dy <= 2; dy++) {
-    for (let dx = -2; dx <= 2; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const c = world.cell(x + dx, y + dy);
-      if (c?.enclosureId) return true;
+function bfsPath(
+  world: World,
+  sx: number, sy: number,
+  tx: number, ty: number,
+): { x: number; y: number }[] | null {
+  const { cols, rows } = config.grid;
+  if (sx === tx && sy === ty) return [{ x: sx, y: sy }];
+  if (!walkable(world, sx, sy) || !walkable(world, tx, ty)) return null;
+
+  const visited = new Uint8Array(cols * rows);
+  const parent = new Int32Array(cols * rows).fill(-1);
+  const queue: number[] = [];
+  const startIdx = sy * cols + sx;
+  const endIdx = ty * cols + tx;
+
+  visited[startIdx] = 1;
+  queue.push(startIdx);
+
+  let head = 0;
+  outer: while (head < queue.length) {
+    const idx = queue[head++]!;
+    const cx = idx % cols;
+    const cy = (idx / cols) | 0;
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + (d === 0 ? -1 : d === 1 ? 1 : 0);
+      const ny = cy + (d === 2 ? -1 : d === 3 ? 1 : 0);
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      const nidx = ny * cols + nx;
+      if (visited[nidx] || !walkable(world, nx, ny)) continue;
+      visited[nidx] = 1;
+      parent[nidx] = idx;
+      if (nidx === endIdx) break outer;
+      queue.push(nidx);
     }
   }
-  return false;
+
+  if (!visited[endIdx]) return null;
+
+  // Reconstruct path from end back to start.
+  const path: { x: number; y: number }[] = [];
+  let cur = endIdx;
+  while (cur !== startIdx) {
+    path.push({ x: cur % cols, y: (cur / cols) | 0 });
+    cur = parent[cur]!;
+  }
+  path.push({ x: sx, y: sy });
+  path.reverse();
+  return path;
 }
 
-export function invalidateVisitorPathing(): void {
-  easystar = null;
+function rebuildViewingSpots(world: World): void {
+  viewingSpots = [];
+  const { cols, rows } = config.grid;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const c = world.cell(x, y);
+      if (!c?.isPath) continue;
+      if (
+        world.cell(x, y - 1)?.enclosureId ||
+        world.cell(x, y + 1)?.enclosureId ||
+        world.cell(x - 1, y)?.enclosureId ||
+        world.cell(x + 1, y)?.enclosureId
+      ) {
+        viewingSpots.push({ x, y });
+      }
+    }
+  }
+  viewingSpotsBuilt = true;
+  console.log(`[Visitors] viewing spots rebuilt: ${viewingSpots.length}`, viewingSpots.slice(0, 5));
 }
 
-function findEntranceGate(world: World) {
+function findGate(world: World) {
   for (const b of world.buildings.values()) {
     if (b.type === 'EntranceGate') return b;
   }
   return null;
 }
 
-function dinoCount(world: World): number {
-  return world.dinos.size;
-}
-
 function spawnIntervalTicks(world: World): number {
-  const dinos = dinoCount(world);
+  const dinos = world.dinos.size;
   if (dinos === 0) return Infinity;
   const priceFactor = Math.max(0.1, 2 - world.admissionPrice / 20);
   return Math.max(4, Math.min(600, Math.round(60 / (dinos * priceFactor))));
 }
 
 export function tickVisitors(world: World): void {
-  const cs = config.grid.cellSize;
-  const gate = findEntranceGate(world);
+  if (!viewingSpotsBuilt) rebuildViewingSpots(world);
 
-  // Step each visitor first, so newly spawned visitors are only processed next tick.
+  const cs = config.grid.cellSize;
+  const gate = findGate(world);
+
   const toRemove: string[] = [];
+
   for (const v of world.visitors.values()) {
-    if (v.path.length === 0 || v.pathIdx >= v.path.length) {
-      // Decide next action.
+    const pathDone = v.path.length === 0 || v.pathIdx >= v.path.length;
+
+    if (pathDone) {
       if (v.state === 'arriving') {
         v.state = 'viewing';
+        v.viewIdleRemaining = world.rng.intRange(5, 20);
       }
+
       if (v.state === 'viewing') {
         if (v.viewIdleRemaining > 0) {
           v.viewIdleRemaining--;
@@ -95,61 +134,54 @@ export function tickVisitors(world: World): void {
         if (v.enclosuresViewed >= config.visitors.enclosuresPerVisit) {
           v.state = 'leaving';
         } else {
-          // Pick another viewing cell.
-          if (!planVisitorTo(world, v, pickViewingTarget(world))) {
-            v.state = 'leaving';
-          } else {
-            v.viewIdleRemaining = config.visitors.viewIdleTicks;
+          const spot = pickSpot(world, v);
+          if (spot && planPath(world, v, spot)) {
+            v.state = 'arriving';
             continue;
           }
+          v.state = 'leaving';
         }
       }
+
       if (v.state === 'leaving') {
-        if (gate) {
-          if (!planVisitorTo(world, v, { x: gate.x, y: gate.y })) {
-            toRemove.push(v.id);
-            continue;
-          }
-        } else {
+        if (!gate || !planPath(world, v, { x: gate.x, y: gate.y })) {
           toRemove.push(v.id);
           continue;
         }
-        v.state = 'leaving';
-        // Once on path to leave, despawn when reached end.
-        if (v.path.length === 0) {
-          toRemove.push(v.id);
-          continue;
-        }
-        // Mark a sentinel: once we reach the gate cell, despawn.
-        v.viewIdleRemaining = 0;
       }
     }
 
-    // Move along path.
-    const node = v.path[v.pathIdx];
-    if (!node) {
-      if (v.state === 'leaving') toRemove.push(v.id);
-      continue;
-    }
-    const tx = (node.x + 0.5) * cs;
-    const ty = (node.y + 0.5) * cs;
-    const dx = tx - v.x;
-    const dy = ty - v.y;
-    const dist = Math.hypot(dx, dy);
-    const stepPx = 22 * (config.time.tickMs / 1000);
-    if (dist < stepPx) {
-      v.x = tx;
-      v.y = ty;
-      v.pathIdx++;
-    } else {
-      v.x += (dx / dist) * stepPx;
-      v.y += (dy / dist) * stepPx;
+    // Move along path, consuming the full budget across multiple waypoints if needed.
+    let budget = 22 * (config.time.tickMs / 1000);
+    while (budget > 1e-6) {
+      const node = v.path[v.pathIdx];
+      if (!node) break;
+      const tx = (node.x + 0.5) * cs;
+      const ty = (node.y + 0.5) * cs;
+      const dx = tx - v.x;
+      const dy = ty - v.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist <= budget) {
+        v.x = tx;
+        v.y = ty;
+        budget -= dist;
+        v.pathIdx++;
+        if (v.state === 'leaving' && v.pathIdx >= v.path.length) {
+          toRemove.push(v.id);
+          break;
+        }
+      } else {
+        v.x += (dx / dist) * budget;
+        v.y += (dy / dist) * budget;
+        break;
+      }
     }
   }
+
   for (const id of toRemove) world.visitors.delete(id);
 
-  // Spawn cadence — after movement so new visitors are processed on the next tick.
-  if (gate && dinoCount(world) > 0) {
+  // Spawn — after loop so new visitors are processed next tick.
+  if (gate && world.dinos.size > 0 && viewingSpots.length > 0) {
     if (world.tick >= nextSpawnAt) {
       spawnVisitor(world, gate);
       nextSpawnAt = world.tick + spawnIntervalTicks(world);
@@ -159,68 +191,58 @@ export function tickVisitors(world: World): void {
   }
 }
 
+function pickSpot(
+  world: World,
+  exclude?: Visitor,
+): { x: number; y: number } | null {
+  if (viewingSpots.length === 0) return null;
+  if (!exclude || viewingSpots.length === 1) return world.rng.pick(viewingSpots);
+  const cs = config.grid.cellSize;
+  const cx = Math.floor(exclude.x / cs);
+  const cy = Math.floor(exclude.y / cs);
+  const others = viewingSpots.filter(s => s.x !== cx || s.y !== cy);
+  return world.rng.pick(others.length > 0 ? others : viewingSpots);
+}
+
 function spawnVisitor(world: World, gate: { x: number; y: number }): void {
   const cs = config.grid.cellSize;
-  const spawnX = (gate.x + 0.5) * cs;
-  const spawnY = (gate.y + 0.5) * cs;
+  const px = (gate.x + 0.5) * cs;
+  const py = (gate.y + 0.5) * cs;
   const v: Visitor = {
     id: world.newId('visitor'),
-    x: spawnX,
-    y: spawnY,
-    prevX: spawnX,
-    prevY: spawnY,
+    x: px,
+    y: py,
+    prevX: px,
+    prevY: py,
     state: 'arriving',
     enclosuresViewed: 0,
     path: [],
     pathIdx: 0,
-    viewIdleRemaining: 3,
+    viewIdleRemaining: 0,
+    targetCell: null,
   };
   world.visitors.set(v.id, v);
   changeCash(world, world.admissionPrice, 'admission');
-  const target = pickViewingTarget(world);
-  if (target) planVisitorTo(world, v, target);
+  const spot = pickSpot(world);
+  const ok = spot ? planPath(world, v, spot) : false;
+  console.log(`[Visitors] spawned ${v.id} at gate(${gate.x},${gate.y}), spot=${JSON.stringify(spot)}, pathOk=${ok}, pathLen=${v.path.length}`);
 }
 
-function pickViewingTarget(world: World): { x: number; y: number } | null {
-  const candidates: { x: number; y: number }[] = [];
-  for (let y = 0; y < config.grid.rows; y++) {
-    for (let x = 0; x < config.grid.cols; x++) {
-      const c = world.cell(x, y);
-      if (!c) continue;
-      if (c.enclosureId) continue;
-      if (c.buildingId) continue;
-      if (!isViewingCell(world, x, y)) continue;
-      candidates.push({ x, y });
-    }
-  }
-  if (candidates.length === 0) return null;
-  return world.rng.pick(candidates);
-}
-
-function planVisitorTo(
+function planPath(
   world: World,
   v: Visitor,
-  target: { x: number; y: number } | null,
+  target: { x: number; y: number },
 ): boolean {
-  if (!target) return false;
-  if (!easystar) easystar = buildEasystar(world);
   const cs = config.grid.cellSize;
   const sx = Math.floor(v.x / cs);
   const sy = Math.floor(v.y / cs);
-  let resolved = false;
-  let path: { x: number; y: number }[] | null = null;
-  easystar.findPath(sx, sy, target.x, target.y, (p) => {
-    path = p;
-    resolved = true;
-  });
-  // Iterate until the search completes. easystar processes a fixed number of nodes per
-  // calculate(); for an 80x60 grid we cap at ~5000 iterations to avoid infinite loops.
-  for (let i = 0; i < 5000 && !resolved; i++) {
-    easystar.calculate();
+  const path = bfsPath(world, sx, sy, target.x, target.y);
+  if (!path) {
+    console.warn(`[Visitors] no path (${sx},${sy}) → (${target.x},${target.y})`);
+    return false;
   }
-  if (!resolved) return false;
-  if (!path) return false;
-  v.path = path as { x: number; y: number }[];
+  v.path = path;
   v.pathIdx = 0;
-  return v.path.length > 0;
+  v.targetCell = target;
+  return true;
 }

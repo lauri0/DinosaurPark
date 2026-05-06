@@ -63,6 +63,7 @@ export interface Visitor {
   path: { x: number; y: number }[];
   pathIdx: number;
   viewIdleRemaining: number;
+  targetCell: { x: number; y: number } | null;
 }
 
 export interface DigSiteState {

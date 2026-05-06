@@ -40,6 +40,7 @@ export class ParkScene extends Phaser.Scene {
   private accumulator = 0;
   private lerpAlpha = 0;
   private carryDiv: HTMLDivElement | null = null;
+  private selectedVisitorId: string | null = null;
 
   constructor() {
     super('ParkScene');
@@ -153,7 +154,10 @@ export class ParkScene extends Phaser.Scene {
       if (p.button !== 0 && p.button !== 2) return;
       const erase = p.button === 2;
       if (erase && (this.buildMode === 'cursor' || this.buildMode === 'carry')) return;
-      if (this.buildMode === 'cursor') return;
+      if (this.buildMode === 'cursor') {
+        this.trySelectVisitor(p);
+        return;
+      }
       if (this.buildMode === 'carry') {
         if (p.button === 0) this.tryPlaceCarry(p);
         return;
@@ -357,6 +361,45 @@ export class ParkScene extends Phaser.Scene {
     }
   }
 
+  private trySelectVisitor(p: Phaser.Input.Pointer): void {
+    const cam = this.cameras.main;
+    const wp = cam.getWorldPoint(p.x, p.y);
+    const cs = config.grid.cellSize;
+    const cx = Math.floor(wp.x / cs);
+    const cy = Math.floor(wp.y / cs);
+    const cell = this.world.cell(cx, cy);
+    console.log(`[Click] cell (${cx},${cy})`, {
+      isPath: cell?.isPath,
+      buildingId: cell?.buildingId ?? null,
+      enclosureId: cell?.enclosureId ?? null,
+    });
+
+    const pickRadius = 12 / cam.zoom;
+    let best: { id: string; dist: number } | null = null;
+    for (const v of this.world.visitors.values()) {
+      const dist = Math.hypot(v.x - wp.x, v.y - wp.y);
+      if (dist < pickRadius && (!best || dist < best.dist)) {
+        best = { id: v.id, dist };
+      }
+    }
+    const v = best ? this.world.visitors.get(best.id) : null;
+    if (v) {
+      this.selectedVisitorId = v.id;
+      console.log('[Visitor inspect]', {
+        id: v.id,
+        state: v.state,
+        pos: `(${Math.floor(v.x / cs)}, ${Math.floor(v.y / cs)})`,
+        target: v.targetCell ? `(${v.targetCell.x}, ${v.targetCell.y})` : 'none',
+        pathLen: v.path.length,
+        pathIdx: v.pathIdx,
+        idleRemaining: v.viewIdleRemaining,
+        enclosuresViewed: v.enclosuresViewed,
+      });
+    } else {
+      this.selectedVisitorId = null;
+    }
+  }
+
   private applyFenceLine(cxEnd: number, cyEnd: number): void {
     const isGate = this.buildMode === 'gate';
     // Remove edges added by this drag segment.
@@ -425,7 +468,7 @@ export class ParkScene extends Phaser.Scene {
     });
     this.dinoLayer.render(this.world, this.lerpAlpha);
     this.rangerLayer.render(this.world, this.lerpAlpha);
-    this.visitorLayer.render(this.world, this.lerpAlpha);
+    this.visitorLayer.render(this.world, this.lerpAlpha, this.selectedVisitorId);
 
     // Build preview.
     const p = this.input.activePointer;
