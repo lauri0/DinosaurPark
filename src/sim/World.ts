@@ -33,6 +33,9 @@ export class World {
   pendingHaul: PendingHaul | null = null;
 
   dna: Record<string, number> = {};
+  // Per-species running counter — never decreases. Used to name newly placed dinos
+  // (e.g. "Allosaurus 3" even if Allosaurus 1 and 2 are gone).
+  nextDinoNumber: Record<string, number> = {};
   pendingHatchlings: PendingHatchling[] = [];
   hatchInProgress: HatchInProgress[] = [];
   carryHatchlingId: string | null = null;

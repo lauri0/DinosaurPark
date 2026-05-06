@@ -26,6 +26,8 @@ export interface Enclosure {
 export interface Dino {
   id: string;
   speciesId: string;
+  name: string;
+  birthTick: number;
   enclosureId: string | null;
   x: number;
   y: number;

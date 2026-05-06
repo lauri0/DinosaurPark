@@ -67,9 +67,14 @@ export function placeHatchling(world: World, cellX: number, cellY: number): stri
   }
   // Spawn dino at click position.
   const cs = config.grid.cellSize;
+  const species = getSpecies(h.speciesId);
+  const num = (world.nextDinoNumber[h.speciesId] ?? 0) + 1;
+  world.nextDinoNumber[h.speciesId] = num;
   const dino: Dino = {
     id: world.newId('dino'),
     speciesId: h.speciesId,
+    name: `${species.displayName} ${num}`,
+    birthTick: world.tick,
     enclosureId: enc.id,
     x: (cellX + 0.5) * cs,
     y: (cellY + 0.5) * cs,
@@ -86,6 +91,6 @@ export function placeHatchling(world: World, cellX: number, cellY: number): stri
   world.pendingHatchlings = world.pendingHatchlings.filter((x) => x.id !== h.id);
   world.carryHatchlingId = null;
   emit(Events.HatchPlaced, { dinoId: dino.id, enclosureId: enc.id });
-  world.log(`Placed ${getSpecies(h.speciesId).displayName} in enclosure.`);
+  world.log(`Placed ${dino.name} in enclosure.`);
   return null;
 }

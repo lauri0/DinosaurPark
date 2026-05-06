@@ -25,11 +25,12 @@ export function tickDinos(world: World): void {
       }
     }
 
-    // Eating: if hungry and feeder has food in same enclosure, target it.
-    if (d.satiation < config.dinos.eatTriggerSatiation) {
+    // Eating: trigger when hungry; once started, keep eating until full or feeder empties.
+    const startEating = d.satiation < config.dinos.eatTriggerSatiation;
+    const continueEating = d.eatingFeederId != null && d.satiation < 100;
+    if (startEating || continueEating) {
       const feeder = findFeederForEnclosure(world, d.enclosureId);
       if (feeder && (feeder.food ?? 0) > 0) {
-        // Walk to feeder center.
         const fc = world.buildingCenterPx(feeder);
         d.waypoint = fc;
         d.eatingFeederId = feeder.id;
@@ -38,11 +39,14 @@ export function tickDinos(world: World): void {
         const dist = Math.hypot(dx, dy);
         const arrived = dist < cs * 0.6;
         if (arrived) {
-          // Eat: per tick consume up to (eatAmount * 0.01)% of capacity worth.
           const eat = Math.min(sp.eatAmount * 0.01, feeder.food ?? 0);
           feeder.food = (feeder.food ?? 0) - eat;
-          // Each unit of food restores `100 / eatAmount` satiation.
           d.satiation = Math.min(100, d.satiation + (eat * 100) / sp.eatAmount);
+          if (d.satiation >= 100) {
+            // Fully sated — leave the feeder; will only return when hungry again.
+            d.eatingFeederId = null;
+            d.waypoint = null;
+          }
         } else {
           stepToward(d, fc, sp.baseSpeed);
         }

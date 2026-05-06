@@ -375,6 +375,20 @@ export class ParkScene extends Phaser.Scene {
     });
 
     const pickRadius = 12 / cam.zoom;
+    // Dinos take precedence over visitors when overlapping.
+    let bestDino: { id: string; dist: number } | null = null;
+    for (const d of this.world.dinos.values()) {
+      const dist = Math.hypot(d.x - wp.x, d.y - wp.y);
+      if (dist < pickRadius && (!bestDino || dist < bestDino.dist)) {
+        bestDino = { id: d.id, dist };
+      }
+    }
+    if (bestDino) {
+      this.selectedVisitorId = null;
+      emit(Events.DinoClicked, { dinoId: bestDino.id });
+      return;
+    }
+
     let best: { id: string; dist: number } | null = null;
     for (const v of this.world.visitors.values()) {
       const dist = Math.hypot(v.x - wp.x, v.y - wp.y);

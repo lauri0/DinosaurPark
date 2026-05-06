@@ -43,7 +43,7 @@ export const config = {
     hatchThreshold: 50,
     hatchTicks: 3,
   },
-  dinos: { starvationHealthDrop: 0.5, eatTriggerSatiation: 60 },
+  dinos: { starvationHealthDrop: 0.5, eatTriggerSatiation: 30 },
   feeder: { capacity: 100, refillThresholdRatio: 0.3 },
   ranger: { maxPerStation: 3 },
   notifications: { maxEntries: 200 },

@@ -27,6 +27,7 @@ interface SaveBlob {
   activeExpedition: { siteId: string; finishesAtTick: number } | null;
   pendingHaul: World['pendingHaul'];
   dna: Record<string, number>;
+  nextDinoNumber: Record<string, number>;
   pendingHatchlings: { id: string; speciesId: string }[];
   hatchInProgress: { hatcheryId: string; speciesId: string; finishesAtTick: number }[];
   notifications: { tick: number; msg: string }[];
@@ -69,6 +70,7 @@ export function saveWorld(world: World): void {
     activeExpedition: world.activeExpedition,
     pendingHaul: world.pendingHaul,
     dna: { ...world.dna },
+    nextDinoNumber: { ...world.nextDinoNumber },
     pendingHatchlings: world.pendingHatchlings.map((h) => ({ ...h })),
     hatchInProgress: world.hatchInProgress.map((h) => ({ ...h })),
     notifications: world.notifications.slice(),
@@ -110,7 +112,22 @@ export function loadWorld(): World | null {
       }
     }
   }
-  for (const d of blob.dinos) world.dinos.set(d.id, { ...d, prevX: d.prevX ?? d.x, prevY: d.prevY ?? d.y });
+  if (blob.nextDinoNumber) world.nextDinoNumber = { ...blob.nextDinoNumber };
+  for (const d of blob.dinos) {
+    let name = d.name;
+    if (!name) {
+      const num = (world.nextDinoNumber[d.speciesId] ?? 0) + 1;
+      world.nextDinoNumber[d.speciesId] = num;
+      name = `${d.speciesId} ${num}`;
+    }
+    world.dinos.set(d.id, {
+      ...d,
+      name,
+      birthTick: d.birthTick ?? 0,
+      prevX: d.prevX ?? d.x,
+      prevY: d.prevY ?? d.y,
+    });
+  }
   for (const r of blob.rangers) world.rangers.set(r.id, { ...r, prevX: r.prevX ?? r.x, prevY: r.prevY ?? r.y });
   for (const v of (blob.visitors ?? [])) world.visitors.set(v.id, { ...v, prevX: v.prevX ?? v.x, prevY: v.prevY ?? v.y, targetCell: v.targetCell ?? null });
   for (const s of blob.digSites) {
