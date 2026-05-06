@@ -5,6 +5,9 @@ import type { Visitor } from './types';
 
 let nextSpawnAt = 30;
 
+export function getNextSpawnAt(): number { return nextSpawnAt; }
+export function setNextSpawnAt(t: number): void { nextSpawnAt = t; }
+
 // Path cells directly adjacent (4-way) to an enclosure cell.
 let viewingSpots: { x: number; y: number }[] = [];
 let viewingSpotsBuilt = false;

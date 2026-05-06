@@ -1,7 +1,7 @@
 import { config } from '../data/config';
 import { recomputeEnclosures } from './Enclosures';
-import { invalidateVisitorPathing } from './Visitors';
-import type { Building, Dino, Ranger } from './types';
+import { invalidateVisitorPathing, getNextSpawnAt, setNextSpawnAt } from './Visitors';
+import type { Building, Dino, Ranger, Visitor } from './types';
 import { World } from './World';
 
 const SAVE_KEY = 'dpb.save.v1';
@@ -21,6 +21,8 @@ interface SaveBlob {
   enclosureSpecies: { cellsHash: string; speciesId: string }[];
   dinos: Dino[];
   rangers: Ranger[];
+  visitors: Visitor[];
+  nextVisitorSpawnAt: number;
   digSites: { id: string; unlocked: boolean; quality: string }[];
   activeExpedition: { siteId: string; finishesAtTick: number } | null;
   pendingHaul: World['pendingHaul'];
@@ -61,6 +63,8 @@ export function saveWorld(world: World): void {
     enclosureSpecies,
     dinos: Array.from(world.dinos.values()),
     rangers: Array.from(world.rangers.values()),
+    visitors: Array.from(world.visitors.values()),
+    nextVisitorSpawnAt: getNextSpawnAt(),
     digSites: Array.from(world.digSites.values()),
     activeExpedition: world.activeExpedition,
     pendingHaul: world.pendingHaul,
@@ -108,6 +112,7 @@ export function loadWorld(): World | null {
   }
   for (const d of blob.dinos) world.dinos.set(d.id, { ...d, prevX: d.prevX ?? d.x, prevY: d.prevY ?? d.y });
   for (const r of blob.rangers) world.rangers.set(r.id, { ...r, prevX: r.prevX ?? r.x, prevY: r.prevY ?? r.y });
+  for (const v of (blob.visitors ?? [])) world.visitors.set(v.id, { ...v, prevX: v.prevX ?? v.x, prevY: v.prevY ?? v.y, targetCell: v.targetCell ?? null });
   for (const s of blob.digSites) {
     world.digSites.set(s.id, {
       id: s.id,
@@ -134,6 +139,7 @@ export function loadWorld(): World | null {
     }
   }
   invalidateVisitorPathing();
+  setNextSpawnAt(blob.nextVisitorSpawnAt ?? blob.tick + 30);
   return world;
 }
 
