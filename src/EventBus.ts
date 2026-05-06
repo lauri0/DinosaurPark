@@ -32,6 +32,7 @@ export const Events = {
   HatchPlaced: 'hatch-placed',
   HatchPickedUp: 'hatch-picked-up',
   RangerHired: 'ranger-hired',
+  RangerFired: 'ranger-fired',
   CashChanged: 'cash-changed',
   Notification: 'notification',
   TimeSpeedChanged: 'time-speed-changed',

@@ -1,7 +1,7 @@
 import { on, Events } from '../EventBus';
 import { config } from '../data/config';
 import type { World } from '../sim/World';
-import { hireRanger } from '../sim/Rangers';
+import { hireRanger, fireRanger } from '../sim/Rangers';
 import { makePanel, openPanel, closePanel } from './panel';
 
 let panel: HTMLElement | null = null;
@@ -13,6 +13,7 @@ export function mountRangerPanel(getWorld: () => World): void {
     render(getWorld());
   });
   on(Events.RangerHired, () => maybeRerender(getWorld()));
+  on(Events.RangerFired, () => maybeRerender(getWorld()));
 }
 
 function maybeRerender(world: World): void {
@@ -42,7 +43,24 @@ function populate(panel: HTMLElement, world: World): void {
   for (const r of rangers) {
     const row = document.createElement('div');
     row.className = 'row';
-    row.innerHTML = `<div>${r.name}</div><div style="color:#aaa">${r.state}</div>`;
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    const name = document.createElement('div');
+    name.textContent = r.name;
+    name.style.flex = '1';
+    const state = document.createElement('div');
+    state.textContent = r.state;
+    state.style.color = '#aaa';
+    const fireBtn = document.createElement('button');
+    fireBtn.textContent = 'Fire';
+    fireBtn.addEventListener('click', () => {
+      fireRanger(world, r.id);
+      populate(panel, world);
+    });
+    row.appendChild(name);
+    row.appendChild(state);
+    row.appendChild(fireBtn);
     body.appendChild(row);
   }
   const remaining = config.ranger.maxPerStation - rangers.length;

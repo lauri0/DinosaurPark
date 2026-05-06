@@ -36,6 +36,15 @@ export function hireRanger(world: World, stationId: string): boolean {
   return true;
 }
 
+export function fireRanger(world: World, rangerId: string): boolean {
+  const r = world.rangers.get(rangerId);
+  if (!r) return false;
+  world.rangers.delete(rangerId);
+  emit(Events.RangerFired, { rangerId, stationId: r.stationId });
+  world.log(`Fired ranger ${r.name}.`);
+  return true;
+}
+
 export function tickRangers(world: World): void {
   for (const r of world.rangers.values()) {
     const station = world.buildings.get(r.stationId);
