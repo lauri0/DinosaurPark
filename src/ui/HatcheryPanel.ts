@@ -78,11 +78,12 @@ function populate(p: HTMLElement | null, world: World): void {
   if (inProgress) {
     const remaining = inProgress.finishesAtTick - world.tick;
     const sp = getSpecies(inProgress.speciesId);
+    const symbol = inProgress.sex === 'male' ? '♂' : '♀';
     const div = document.createElement('div');
     div.style.padding = '6px';
     div.style.marginTop = '6px';
     div.style.background = '#1f2a1f';
-    div.textContent = `Hatching ${sp.displayName} — ${Math.max(0, remaining)} ticks`;
+    div.textContent = `Hatching ${symbol} ${sp.displayName} — ${Math.max(0, remaining)} ticks`;
     body.appendChild(div);
   } else {
     const h2 = document.createElement('h3');
@@ -98,13 +99,24 @@ function populate(p: HTMLElement | null, world: World): void {
       const row = document.createElement('div');
       row.className = 'row';
       row.innerHTML = `<div><strong style="color:${sp.color}">${sp.displayName}</strong> ${Math.round(dna)}%</div>`;
-      const btn = document.createElement('button');
-      btn.textContent = `Hatch (${config.expedition.hatchTicks}t)`;
-      btn.addEventListener('click', () => {
-        startHatch(world, activeHatcheryId!, sp.id);
+      const btnGroup = document.createElement('div');
+      btnGroup.style.display = 'flex';
+      btnGroup.style.gap = '4px';
+      const maleBtn = document.createElement('button');
+      maleBtn.textContent = `♂ (${config.expedition.hatchTicks}t)`;
+      maleBtn.addEventListener('click', () => {
+        startHatch(world, activeHatcheryId!, sp.id, 'male');
         populate(panel, world);
       });
-      row.appendChild(btn);
+      const femaleBtn = document.createElement('button');
+      femaleBtn.textContent = `♀ (${config.expedition.hatchTicks}t)`;
+      femaleBtn.addEventListener('click', () => {
+        startHatch(world, activeHatcheryId!, sp.id, 'female');
+        populate(panel, world);
+      });
+      btnGroup.appendChild(maleBtn);
+      btnGroup.appendChild(femaleBtn);
+      row.appendChild(btnGroup);
       body.appendChild(row);
     }
     if (!any) {
@@ -124,9 +136,10 @@ function populate(p: HTMLElement | null, world: World): void {
     body.appendChild(h2);
     for (const h of world.pendingHatchlings) {
       const sp = getSpecies(h.speciesId);
+      const symbol = h.sex === 'male' ? '♂' : '♀';
       const row = document.createElement('div');
       row.className = 'row';
-      row.innerHTML = `<div><strong style="color:${sp.color}">${sp.displayName}</strong> hatchling</div>`;
+      row.innerHTML = `<div><strong style="color:${sp.color}">${symbol} ${sp.displayName}</strong> hatchling</div>`;
       const btn = document.createElement('button');
       btn.textContent = world.carryHatchlingId === h.id ? 'Carrying…' : 'Pick Up';
       btn.disabled = !!world.carryHatchlingId && world.carryHatchlingId !== h.id;

@@ -38,8 +38,8 @@ interface SaveBlob {
   admissionRevenueTotal?: number;
   admissionRevenueThisMonth?: number;
   admissionRevenueLastMonth?: number;
-  pendingHatchlings: { id: string; speciesId: string }[];
-  hatchInProgress: { hatcheryId: string; speciesId: string; finishesAtTick: number }[];
+  pendingHatchlings: { id: string; speciesId: string; sex?: 'male' | 'female' }[];
+  hatchInProgress: { hatcheryId: string; speciesId: string; sex?: 'male' | 'female'; finishesAtTick: number }[];
   notifications: { tick: number; msg: string }[];
 }
 
@@ -177,6 +177,7 @@ export function loadWorld(): World | null {
       birthTick: d.birthTick ?? 0,
       prevX: d.prevX ?? d.x,
       prevY: d.prevY ?? d.y,
+      sex: d.sex ?? 'female',
     });
   }
   for (const r of blob.rangers) {
@@ -226,8 +227,8 @@ export function loadWorld(): World | null {
   world.activeExpedition = blob.activeExpedition;
   world.pendingHaul = blob.pendingHaul;
   world.dna = { ...blob.dna };
-  world.pendingHatchlings = blob.pendingHatchlings.slice();
-  world.hatchInProgress = blob.hatchInProgress.slice();
+  world.pendingHatchlings = blob.pendingHatchlings.map((h) => ({ ...h, sex: h.sex ?? 'female' }));
+  world.hatchInProgress = blob.hatchInProgress.map((h) => ({ ...h, sex: h.sex ?? 'female' }));
   world.notifications = blob.notifications.slice();
 
   recomputeEnclosures(world);

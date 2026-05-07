@@ -4,7 +4,7 @@ import type { World } from './World';
 import { getSpecies } from '../data/species';
 import type { Dino, PendingHatchling } from './types';
 
-export function startHatch(world: World, hatcheryId: string, speciesId: string): boolean {
+export function startHatch(world: World, hatcheryId: string, speciesId: string, sex: 'male' | 'female'): boolean {
   const dna = world.dna[speciesId] ?? 0;
   if (dna < config.expedition.hatchThreshold) return false;
   const hatchery = world.buildings.get(hatcheryId);
@@ -13,10 +13,12 @@ export function startHatch(world: World, hatcheryId: string, speciesId: string):
   world.hatchInProgress.push({
     hatcheryId,
     speciesId,
+    sex,
     finishesAtTick: world.tick + config.expedition.hatchTicks,
   });
-  emit(Events.HatchStarted, { hatcheryId, speciesId });
-  world.log(`Hatching ${getSpecies(speciesId).displayName}…`);
+  emit(Events.HatchStarted, { hatcheryId, speciesId, sex });
+  const symbol = sex === 'male' ? '♂' : '♀';
+  world.log(`Hatching ${symbol} ${getSpecies(speciesId).displayName}…`);
   return true;
 }
 
@@ -28,10 +30,12 @@ export function tickHatchery(world: World): void {
       const hatchling: PendingHatchling = {
         id: world.newId('hatchling'),
         speciesId: h.speciesId,
+        sex: h.sex,
       };
       world.pendingHatchlings.push(hatchling);
       emit(Events.HatchReady, hatchling);
-      world.log(`Hatchling ready: ${getSpecies(h.speciesId).displayName}.`);
+      const symbol = h.sex === 'male' ? '♂' : '♀';
+      world.log(`Hatchling ready: ${symbol} ${getSpecies(h.speciesId).displayName}.`);
     }
   }
 }
@@ -85,6 +89,7 @@ export function placeHatchling(world: World, cellX: number, cellY: number): stri
     dnaPercentAtHatch: world.dna[h.speciesId] ?? 0,
     waypoint: null,
     nextWanderAt: world.tick + 1,
+    sex: h.sex,
   };
   world.dinos.set(dino.id, dino);
   // Remove from pending.

@@ -53,6 +53,7 @@ export interface Dino {
   waypoint: { x: number; y: number } | null;
   nextWanderAt: number;
   eatingFeederId?: string | null;
+  sex: 'male' | 'female';
 }
 
 export interface Poop {
@@ -127,11 +128,13 @@ export interface PendingHaul {
 export interface PendingHatchling {
   id: string;
   speciesId: string;
+  sex: 'male' | 'female';
 }
 
 export interface HatchInProgress {
   hatcheryId: string;
   speciesId: string;
+  sex: 'male' | 'female';
   finishesAtTick: number;
 }
 
