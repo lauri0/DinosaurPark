@@ -13,6 +13,7 @@ import type {
   NotificationEntry,
   PendingHatchling,
   PendingHaul,
+  Poop,
   Ranger,
   Visitor,
 } from './types';
@@ -28,6 +29,9 @@ export class World {
   dinos: Map<string, Dino> = new Map();
   rangers: Map<string, Ranger> = new Map();
   visitors: Map<string, Visitor> = new Map();
+  poops: Map<string, Poop> = new Map();
+  // "x,y" → poop id, for O(1) per-cell lookup.
+  poopByCell: Map<string, string> = new Map();
 
   digSites: Map<string, DigSiteState> = new Map();
   activeExpedition: ActiveExpedition | null = null;
@@ -259,6 +263,10 @@ export class World {
       this.notifications.splice(0, this.notifications.length - config.notifications.maxEntries);
     }
   }
+}
+
+export function poopCellKey(x: number, y: number): string {
+  return `${x},${y}`;
 }
 
 function makeEmptyGrid(): Cell[][] {

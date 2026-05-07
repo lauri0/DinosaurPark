@@ -38,7 +38,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     displayName: 'Ranger Station',
     width: 2,
     height: 2,
-    cost: 800,
+    cost: 200,
     glyph: 'cross',
     staffWalkable: true,
   },

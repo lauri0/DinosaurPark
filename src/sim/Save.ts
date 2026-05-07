@@ -4,8 +4,8 @@ import { getFacilityDef } from '../data/facilities';
 import type { BuildingType } from '../data/buildings';
 import { recomputeEnclosures } from './Enclosures';
 import { invalidateVisitorPathing, getNextSpawnAt, setNextSpawnAt } from './Visitors';
-import type { Building, Dino, Ranger, Visitor } from './types';
-import { World } from './World';
+import type { Building, Dino, Poop, Ranger, Visitor } from './types';
+import { World, poopCellKey } from './World';
 
 const SAVE_KEY = 'dpb.save.v1';
 const SAVE_VERSION = 1;
@@ -25,6 +25,7 @@ interface SaveBlob {
   dinos: Dino[];
   rangers: Ranger[];
   visitors: Visitor[];
+  poops?: Poop[];
   nextVisitorSpawnAt: number;
   digSites: { id: string; unlocked: boolean; quality: string }[];
   activeExpedition: { siteId: string; finishesAtTick: number } | null;
@@ -74,6 +75,7 @@ export function saveWorld(world: World): void {
     dinos: Array.from(world.dinos.values()),
     rangers: Array.from(world.rangers.values()),
     visitors: Array.from(world.visitors.values()),
+    poops: Array.from(world.poops.values()),
     nextVisitorSpawnAt: getNextSpawnAt(),
     digSites: Array.from(world.digSites.values()),
     activeExpedition: world.activeExpedition,
@@ -183,12 +185,17 @@ export function loadWorld(): World | null {
       prevX: r.prevX ?? r.x,
       prevY: r.prevY ?? r.y,
       taskFeederId: r.taskFeederId ?? null,
+      taskPoopId: r.taskPoopId ?? null,
       path: r.path ?? [],
       pathIdx: r.pathIdx ?? 0,
       goalCell: r.goalCell ?? null,
       // Force re-plan against freshly-recomputed walkability.
       pathEpoch: -1,
     });
+  }
+  for (const p of blob.poops ?? []) {
+    world.poops.set(p.id, { ...p });
+    world.poopByCell.set(poopCellKey(p.x, p.y), p.id);
   }
   if (typeof blob.nextVisitorNumber === 'number') world.nextVisitorNumber = blob.nextVisitorNumber;
   for (const v of (blob.visitors ?? [])) {

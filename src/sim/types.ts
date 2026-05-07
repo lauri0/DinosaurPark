@@ -55,6 +55,14 @@ export interface Dino {
   eatingFeederId?: string | null;
 }
 
+export interface Poop {
+  id: string;
+  x: number;
+  y: number;
+  enclosureId: string;
+  spawnedAtTick: number;
+}
+
 export interface Ranger {
   id: string;
   name: string;
@@ -63,8 +71,10 @@ export interface Ranger {
   y: number;
   prevX: number;
   prevY: number;
-  state: 'idle' | 'walking-to-feeder' | 'wandering' | 'returning-to-station' | 'stranded';
+  state: 'idle' | 'walking-to-feeder' | 'walking-to-poop' | 'cleaning-poop' | 'wandering' | 'returning-to-station' | 'stranded';
   taskFeederId?: string | null;
+  taskPoopId?: string | null;
+  cleanTicksRemaining?: number;
   path: { x: number; y: number }[];
   pathIdx: number;
   goalCell: { x: number; y: number } | null;

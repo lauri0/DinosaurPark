@@ -2,8 +2,9 @@ import { emit, Events } from '../EventBus';
 import { config } from '../data/config';
 import type { World } from './World';
 import { changeCash } from './Economy';
-import type { Building, Ranger } from './types';
+import type { Building, Poop, Ranger } from './types';
 import { findStaffGoalNear, findStaffPath, staffWalkableCell } from './StaffPathing';
+import { poopCellKey } from './World';
 
 const RANGER_NAMES = [
   'Avery', 'Blake', 'Casey', 'Dani', 'Ezra', 'Finley', 'Gray',
@@ -12,6 +13,7 @@ const RANGER_NAMES = [
 ];
 
 const RANGER_SPEED_PX_PER_SEC = 28;
+const POOP_CLEAN_SECONDS = 2;
 
 export function hireRanger(world: World, stationId: string): boolean {
   const station = world.buildings.get(stationId);
@@ -31,6 +33,7 @@ export function hireRanger(world: World, stationId: string): boolean {
     prevY: center.y,
     state: 'idle',
     taskFeederId: null,
+    taskPoopId: null,
     path: [],
     pathIdx: 0,
     goalCell: null,
@@ -67,10 +70,24 @@ export function tickRangers(world: World): void {
       r.pathEpoch = world.staffPathEpoch;
       r.goalCell = null;
       // If we were mid-task, drop the claim so re-planning can re-pick.
-      if (r.state === 'walking-to-feeder' || r.state === 'returning-to-station' || r.state === 'wandering' || r.state === 'stranded') {
+      // Don't interrupt an in-progress poop cleanup — it's stationary and almost done.
+      if (r.state !== 'idle' && r.state !== 'cleaning-poop') {
         r.state = 'idle';
         r.taskFeederId = null;
+        r.taskPoopId = null;
       }
+    }
+
+    // Cleaning poop: stand still for POOP_CLEAN_SECONDS then remove it.
+    if (r.state === 'cleaning-poop') {
+      r.cleanTicksRemaining = (r.cleanTicksRemaining ?? 0) - 1;
+      if (r.cleanTicksRemaining <= 0) {
+        if (r.taskPoopId) cleanupPoop(world, r.taskPoopId);
+        r.taskPoopId = null;
+        r.cleanTicksRemaining = 0;
+        r.state = 'idle';
+      }
+      continue;
     }
 
     // Idle → assign work.
@@ -86,11 +103,22 @@ export function tickRangers(world: World): void {
           r.pathIdx = 0;
           r.goalCell = goal;
           r.pathEpoch = world.staffPathEpoch;
-        } else if (goal && !path) {
-          // Surface a one-time notification per task assignment.
-          world.log(`Ranger ${r.name}: feeder unreachable.`);
-          // Mark this feeder as claimed by leaving taskFeederId null and going wandering
-          // to avoid spamming the log every tick. Try again after the world changes.
+        }
+      }
+      // No feeder task → try poop cleanup.
+      if (r.state === 'idle') {
+        const poop = findUnclaimedPoop(world);
+        if (poop) {
+          const goal = { x: poop.x, y: poop.y };
+          const path = findStaffPath(world, { x: rcx, y: rcy }, goal);
+          if (path) {
+            r.state = 'walking-to-poop';
+            r.taskPoopId = poop.id;
+            r.path = path;
+            r.pathIdx = 0;
+            r.goalCell = goal;
+            r.pathEpoch = world.staffPathEpoch;
+          }
         }
       }
       // If no task or no path, fall through to wandering.
@@ -139,14 +167,30 @@ export function tickRangers(world: World): void {
       if (r.state === 'walking-to-feeder' && r.taskFeederId) {
         const feeder = world.buildings.get(r.taskFeederId);
         if (feeder) refillFeeder(world, feeder);
+      } else if (r.state === 'walking-to-poop' && r.taskPoopId) {
+        // Stay here and clean for POOP_CLEAN_SECONDS before removing the poop.
+        r.path = [];
+        r.pathIdx = 0;
+        r.goalCell = null;
+        r.state = 'cleaning-poop';
+        r.cleanTicksRemaining = Math.max(1, Math.round(POOP_CLEAN_SECONDS * 1000 / config.time.tickMs));
+        continue;
       }
       r.path = [];
       r.pathIdx = 0;
       r.goalCell = null;
       r.taskFeederId = null;
+      r.taskPoopId = null;
       r.state = 'idle';
     }
   }
+}
+
+function cleanupPoop(world: World, poopId: string): void {
+  const p = world.poops.get(poopId);
+  if (!p) return;
+  world.poops.delete(poopId);
+  world.poopByCell.delete(poopCellKey(p.x, p.y));
 }
 
 function refillFeeder(world: World, feeder: Building): void {
@@ -171,6 +215,18 @@ function pickWanderGoal(world: World, r: Ranger, station: Building): { x: number
   // Fallback: stay on station.
   void r;
   return { x: stationCx, y: stationCy };
+}
+
+function findUnclaimedPoop(world: World): Poop | null {
+  if (world.poops.size === 0) return null;
+  const claimed = new Set<string>();
+  for (const r of world.rangers.values()) {
+    if (r.taskPoopId) claimed.add(r.taskPoopId);
+  }
+  for (const p of world.poops.values()) {
+    if (!claimed.has(p.id)) return p;
+  }
+  return null;
 }
 
 function findLowFeeder(world: World): Building | null {

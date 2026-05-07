@@ -50,6 +50,17 @@ function populate(panel: HTMLElement, world: World): void {
   body.innerHTML = '';
 
   const dinos = Array.from(world.dinos.values()).filter((d) => d.enclosureId === enc.id);
+  let poopCount = 0;
+  for (const p of world.poops.values()) {
+    if (p.enclosureId === enc.id) poopCount++;
+  }
+
+  const stats = document.createElement('div');
+  stats.className = 'row';
+  stats.style.color = '#aaa';
+  stats.style.fontSize = '11px';
+  stats.textContent = `Poop: ${poopCount}`;
+  body.appendChild(stats);
 
   if (dinos.length === 0) {
     const empty = document.createElement('div');

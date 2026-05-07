@@ -9,6 +9,7 @@ import { EnclosureRenderer } from './renderers/EnclosureRenderer';
 import { DinoLayer } from './renderers/DinoSprite';
 import { VisitorLayer } from './renderers/VisitorSprite';
 import { RangerLayer } from './renderers/RangerSprite';
+import { PoopLayer } from './renderers/PoopRenderer';
 import { BuildPreview } from './BuildPreview';
 import { recomputeEnclosures } from '../sim/Enclosures';
 import { invalidateVisitorPathing } from '../sim/Visitors';
@@ -31,6 +32,7 @@ export class ParkScene extends Phaser.Scene {
   private dinoLayer!: DinoLayer;
   private visitorLayer!: VisitorLayer;
   private rangerLayer!: RangerLayer;
+  private poopLayer!: PoopLayer;
   private buildPreview!: BuildPreview;
   private dragging = false;
   private dragErase = false;
@@ -60,6 +62,7 @@ export class ParkScene extends Phaser.Scene {
     this.buildingRenderer = new BuildingRenderer(this);
     this.dinoLayer = new DinoLayer(this);
     this.rangerLayer = new RangerLayer(this);
+    this.poopLayer = new PoopLayer(this);
     this.visitorLayer = new VisitorLayer(this);
     this.buildPreview = new BuildPreview(this);
 
@@ -488,6 +491,7 @@ export class ParkScene extends Phaser.Scene {
       else if (b.type === 'Hatchery') emit(Events.HatcheryClicked, { buildingId: b.id });
       else if (b.type === 'EntranceGate') emit(Events.EntranceGateClicked, { buildingId: b.id });
     });
+    this.poopLayer.render(this.world);
     this.dinoLayer.render(this.world, this.lerpAlpha);
     this.rangerLayer.render(this.world, this.lerpAlpha);
     this.visitorLayer.render(this.world, this.lerpAlpha, this.selectedVisitorId);

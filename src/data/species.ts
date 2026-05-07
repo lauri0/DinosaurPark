@@ -10,6 +10,8 @@ export interface Species {
   wanderFreq: number;
   diet: 'herbivore' | 'carnivore';
   coexistsWith: string[];
+  // Probability (0–1) of leaving a poop on the cell when finishing a wander leg.
+  poopChance: number;
 }
 
 export const SPECIES: Species[] = [
@@ -25,6 +27,7 @@ export const SPECIES: Species[] = [
     wanderFreq: 6,
     diet: 'carnivore',
     coexistsWith: ['utahraptor'],
+    poopChance: 0.15,
   },
   {
     id: 'stegosaurus',
@@ -38,6 +41,7 @@ export const SPECIES: Species[] = [
     wanderFreq: 8,
     diet: 'herbivore',
     coexistsWith: [],
+    poopChance: 0.10,
   },
   {
     id: 'utahraptor',
@@ -51,6 +55,7 @@ export const SPECIES: Species[] = [
     wanderFreq: 4,
     diet: 'carnivore',
     coexistsWith: ['allosaurus'],
+    poopChance: 0.12,
   },
 ];
 

@@ -1,6 +1,8 @@
 import { config } from '../data/config';
 import { getSpecies } from '../data/species';
 import type { World } from './World';
+import { poopCellKey } from './World';
+import type { Poop } from './types';
 // type Dino imported via inference from World
 
 export function tickDinos(world: World): void {
@@ -97,6 +99,7 @@ export function tickDinos(world: World): void {
       const dy = d.waypoint.y - d.y;
       if (Math.hypot(dx, dy) < 2) {
         d.waypoint = null;
+        maybeSpawnPoop(world, d, sp.poopChance);
       } else {
         stepToward(d, d.waypoint, sp.baseSpeed);
       }
@@ -128,6 +131,28 @@ function findFeederForEnclosure(world: World, enclosureId: string) {
     }
   }
   return null;
+}
+
+function maybeSpawnPoop(world: World, d: { x: number; y: number; enclosureId: string | null }, chance: number): void {
+  if (!d.enclosureId) return;
+  if (chance <= 0) return;
+  if (world.rng.next() >= chance) return;
+  const cs = config.grid.cellSize;
+  const cx = Math.floor(d.x / cs);
+  const cy = Math.floor(d.y / cs);
+  const cell = world.cell(cx, cy);
+  if (!cell || cell.enclosureId !== d.enclosureId) return;
+  const key = poopCellKey(cx, cy);
+  if (world.poopByCell.has(key)) return;
+  const p: Poop = {
+    id: world.newId('poop'),
+    x: cx,
+    y: cy,
+    enclosureId: d.enclosureId,
+    spawnedAtTick: world.tick,
+  };
+  world.poops.set(p.id, p);
+  world.poopByCell.set(key, p.id);
 }
 
 export { stepToward };
