@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { config } from '../../data/config';
 import { BUILDINGS, type BuildingType } from '../../data/buildings';
+import { stationServiceBounds } from '../../sim/StaffPathing';
 import type { World } from '../../sim/World';
 import type { Building } from '../../sim/types';
 
@@ -14,19 +15,44 @@ const COLORS: Record<BuildingType, number> = {
 };
 
 export class BuildingRenderer {
+  private rangeG: Phaser.GameObjects.Graphics;
   private g: Phaser.GameObjects.Graphics;
   private hitZones: Map<string, Phaser.GameObjects.Zone> = new Map();
+  private hoveredBuildingId: string | null = null;
   constructor(private scene: Phaser.Scene) {
+    // Range overlay sits below buildings so the building body draws on top.
+    this.rangeG = scene.add.graphics().setDepth(9);
     this.g = scene.add.graphics().setDepth(10);
   }
 
   render(world: World, onClick: (b: Building) => void): void {
     this.g.clear();
+    this.rangeG.clear();
     // Remove stale hit zones.
     for (const [id, z] of this.hitZones) {
       if (!world.buildings.has(id)) {
         z.destroy();
         this.hitZones.delete(id);
+        if (this.hoveredBuildingId === id) this.hoveredBuildingId = null;
+      }
+    }
+    // Draw service-range overlay for the hovered ranger station.
+    if (this.hoveredBuildingId) {
+      const hovered = world.buildings.get(this.hoveredBuildingId);
+      if (hovered && hovered.type === 'RangerStation') {
+        const range = BUILDINGS.RangerStation.serviceRange ?? 0;
+        if (range > 0) {
+          const cs = config.grid.cellSize;
+          const bnds = stationServiceBounds(hovered, range);
+          const x = bnds.minX * cs;
+          const y = bnds.minY * cs;
+          const w = (bnds.maxX - bnds.minX + 1) * cs;
+          const h = (bnds.maxY - bnds.minY + 1) * cs;
+          this.rangeG.fillStyle(0x4ec3ff, 0.12);
+          this.rangeG.fillRect(x, y, w, h);
+          this.rangeG.lineStyle(2, 0x4ec3ff, 0.7);
+          this.rangeG.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        }
       }
     }
     const cs = config.grid.cellSize;
@@ -58,6 +84,12 @@ export class BuildingRenderer {
           if (ev.button !== 0) return;
           // Skip if any build mode is active — handled by ParkScene-level guard.
           onClick(b);
+        });
+        z.on('pointerover', () => {
+          this.hoveredBuildingId = b.id;
+        });
+        z.on('pointerout', () => {
+          if (this.hoveredBuildingId === b.id) this.hoveredBuildingId = null;
         });
         this.hitZones.set(b.id, z);
       } else {

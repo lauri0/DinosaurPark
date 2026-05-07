@@ -1,9 +1,15 @@
 import { emit, Events } from '../EventBus';
 import { config } from '../data/config';
+import { BUILDINGS } from '../data/buildings';
 import type { World } from './World';
 import { changeCash } from './Economy';
-import type { Building, Poop, Ranger } from './types';
-import { findStaffGoalNear, findStaffPath, staffWalkableCell } from './StaffPathing';
+import type { Building, Ranger } from './types';
+import {
+  findNearestStaffTarget,
+  findStaffPath,
+  isInStationRange,
+  staffWalkableCell,
+} from './StaffPathing';
 import { poopCellKey } from './World';
 
 const RANGER_NAMES = [
@@ -54,6 +60,31 @@ export function fireRanger(world: World, rangerId: string): boolean {
   return true;
 }
 
+export function reassignRanger(
+  world: World,
+  rangerId: string,
+  newStationId: string,
+): { ok: true } | { ok: false; reason: string } {
+  const r = world.rangers.get(rangerId);
+  if (!r) return { ok: false, reason: 'Ranger not found.' };
+  const station = world.buildings.get(newStationId);
+  if (!station || station.type !== 'RangerStation') {
+    return { ok: false, reason: 'Target is not a ranger station.' };
+  }
+  if (r.stationId === newStationId) return { ok: true };
+  const count = Array.from(world.rangers.values()).filter(
+    (other) => other.stationId === newStationId,
+  ).length;
+  if (count >= config.ranger.maxPerStation) {
+    return { ok: false, reason: 'That station is full.' };
+  }
+  const fromStationId = r.stationId;
+  r.stationId = newStationId;
+  emit(Events.RangerReassigned, { rangerId, fromStationId, toStationId: newStationId });
+  world.log(`Reassigned ranger ${r.name} to a different station.`);
+  return { ok: true };
+}
+
 export function tickRangers(world: World): void {
   const cs = config.grid.cellSize;
   for (const r of world.rangers.values()) {
@@ -90,36 +121,21 @@ export function tickRangers(world: World): void {
       continue;
     }
 
-    // Idle → assign work.
+    // Idle → assign nearest in-range task (poop or feeder), whichever is closer.
     if (r.state === 'idle') {
-      const feeder = findLowFeeder(world);
-      if (feeder) {
-        const goal = findStaffGoalNear(world, feeder);
-        const path = goal ? findStaffPath(world, { x: rcx, y: rcy }, goal) : null;
-        if (path && goal) {
+      const task = findNearestTaskForRanger(world, station, { x: rcx, y: rcy });
+      if (task) {
+        if (task.kind === 'feeder') {
           r.state = 'walking-to-feeder';
-          r.taskFeederId = feeder.id;
-          r.path = path;
-          r.pathIdx = 0;
-          r.goalCell = goal;
-          r.pathEpoch = world.staffPathEpoch;
+          r.taskFeederId = task.id;
+        } else {
+          r.state = 'walking-to-poop';
+          r.taskPoopId = task.id;
         }
-      }
-      // No feeder task → try poop cleanup.
-      if (r.state === 'idle') {
-        const poop = findUnclaimedPoop(world);
-        if (poop) {
-          const goal = { x: poop.x, y: poop.y };
-          const path = findStaffPath(world, { x: rcx, y: rcy }, goal);
-          if (path) {
-            r.state = 'walking-to-poop';
-            r.taskPoopId = poop.id;
-            r.path = path;
-            r.pathIdx = 0;
-            r.goalCell = goal;
-            r.pathEpoch = world.staffPathEpoch;
-          }
-        }
+        r.path = task.path;
+        r.pathIdx = 0;
+        r.goalCell = task.goalCell;
+        r.pathEpoch = world.staffPathEpoch;
       }
       // If no task or no path, fall through to wandering.
       if (r.state === 'idle') {
@@ -217,28 +233,77 @@ function pickWanderGoal(world: World, r: Ranger, station: Building): { x: number
   return { x: stationCx, y: stationCy };
 }
 
-function findUnclaimedPoop(world: World): Poop | null {
-  if (world.poops.size === 0) return null;
-  const claimed = new Set<string>();
-  for (const r of world.rangers.values()) {
-    if (r.taskPoopId) claimed.add(r.taskPoopId);
-  }
-  for (const p of world.poops.values()) {
-    if (!claimed.has(p.id)) return p;
-  }
-  return null;
-}
+type TaskCandidate =
+  | { kind: 'feeder'; id: string }
+  | { kind: 'poop'; id: string };
 
-function findLowFeeder(world: World): Building | null {
-  const threshold = config.feeder.capacity * config.feeder.refillThresholdRatio;
-  const claimed = new Set<string>();
-  for (const r of world.rangers.values()) {
-    if (r.taskFeederId) claimed.add(r.taskFeederId);
+type TaskSelection = TaskCandidate & {
+  path: { x: number; y: number }[];
+  goalCell: { x: number; y: number };
+};
+
+// Build the set of candidate goal cells (poop tiles + feeder approach tiles)
+// within this station's service range, then run a single BFS from the ranger
+// to pick whichever is closest. If a feeder has multiple staff-walkable
+// neighbors, all of them are added as goals so BFS finds the cheapest approach.
+function findNearestTaskForRanger(
+  world: World,
+  station: Building,
+  from: { x: number; y: number },
+): TaskSelection | null {
+  const cols = config.grid.cols;
+  const range = BUILDINGS.RangerStation.serviceRange ?? Number.POSITIVE_INFINITY;
+
+  const claimedFeeders = new Set<string>();
+  const claimedPoops = new Set<string>();
+  for (const other of world.rangers.values()) {
+    if (other.taskFeederId) claimedFeeders.add(other.taskFeederId);
+    if (other.taskPoopId) claimedPoops.add(other.taskPoopId);
   }
+
+  const goalCells = new Map<number, TaskCandidate>();
+
+  // Low feeders → approach cells.
+  const threshold = config.feeder.capacity * config.feeder.refillThresholdRatio;
   for (const b of world.buildings.values()) {
     if (b.type !== 'Feeder') continue;
-    if (claimed.has(b.id)) continue;
-    if ((b.food ?? 0) < threshold) return b;
+    if (claimedFeeders.has(b.id)) continue;
+    if ((b.food ?? 0) >= threshold) continue;
+    if (!isInStationRange(station, range, b.x, b.y)) continue;
+    for (let dy = 0; dy < b.height; dy++) {
+      for (let dx = 0; dx < b.width; dx++) {
+        const tx = b.x + dx;
+        const ty = b.y + dy;
+        const neighbors = [
+          { x: tx - 1, y: ty },
+          { x: tx + 1, y: ty },
+          { x: tx, y: ty - 1 },
+          { x: tx, y: ty + 1 },
+        ];
+        for (const n of neighbors) {
+          if (!staffWalkableCell(world, n.x, n.y)) continue;
+          const idx = n.y * cols + n.x;
+          // Don't let a poop on this same cell get clobbered — feeder approach
+          // and standing-on-poop both work equally well, take whichever was
+          // added first (poops are added second below).
+          if (!goalCells.has(idx)) goalCells.set(idx, { kind: 'feeder', id: b.id });
+        }
+      }
+    }
   }
-  return null;
+
+  // Unclaimed poops → their own cells.
+  for (const p of world.poops.values()) {
+    if (claimedPoops.has(p.id)) continue;
+    if (!isInStationRange(station, range, p.x, p.y)) continue;
+    if (!staffWalkableCell(world, p.x, p.y)) continue;
+    const idx = p.y * cols + p.x;
+    goalCells.set(idx, { kind: 'poop', id: p.id });
+  }
+
+  if (goalCells.size === 0) return null;
+
+  const result = findNearestStaffTarget(world, from, goalCells);
+  if (!result) return null;
+  return { ...result.target, path: result.path, goalCell: result.goalCell };
 }

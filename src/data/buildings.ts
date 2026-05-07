@@ -14,6 +14,10 @@ export interface BuildingDef {
   cost: number;
   glyph: 'gate' | 'flask' | 'cross' | 'bone' | 'egg' | 'cup';
   staffWalkable?: boolean;
+  // For RangerStation: how many cells the station's service area extends past
+  // its footprint in each cardinal direction. A 2x2 station with range 20
+  // covers a (2 + 40) × (2 + 40) bounding box centered on the station.
+  serviceRange?: number;
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
@@ -41,6 +45,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     cost: 200,
     glyph: 'cross',
     staffWalkable: true,
+    serviceRange: 20,
   },
   FossilCentre: {
     type: 'FossilCentre',
