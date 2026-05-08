@@ -1,8 +1,8 @@
 import { config } from '../data/config';
-import { getSpecies } from '../data/species';
+import { getSpecies, type Species } from '../data/species';
 import type { World } from './World';
 import { poopCellKey } from './World';
-import type { Poop } from './types';
+import type { Dino, Poop } from './types';
 // type Dino imported via inference from World
 
 export function tickDinos(world: World): void {
@@ -26,6 +26,13 @@ export function tickDinos(world: World): void {
   for (const d of world.dinos.values()) {
     if (d.enclosureId === null) continue; // carried (shouldn't happen with current model)
     const sp = getSpecies(d.speciesId);
+
+    // Old age.
+    if (world.tick - d.birthTick >= getLifespanTicks(d, sp)) {
+      toRemove.push(d.id);
+      world.log(`${sp.displayName} ${d.name} has died of old age.`);
+      continue;
+    }
 
     // Hunger / health.
     d.satiation = Math.max(0, d.satiation - sp.satiationDropRate);
@@ -63,8 +70,10 @@ export function tickDinos(world: World): void {
             continue;
           }
           if (!owner) feederOwner.set(feeder.id, d.id);
-          const eat = Math.min(sp.eatAmount * 0.01, feeder.food ?? 0);
-          feeder.food = (feeder.food ?? 0) - eat;
+          const maturity = getMaturity(d, sp, world.tick);
+          const eat = sp.eatAmount * 0.01;
+          const drain = Math.min(eat * maturity, feeder.food ?? 0);
+          feeder.food = (feeder.food ?? 0) - drain;
           d.satiation = Math.min(100, d.satiation + (eat * 100) / sp.eatAmount);
           if (d.satiation >= 100) {
             // Fully sated — leave the feeder; will only return when hungry again.
@@ -156,3 +165,17 @@ function maybeSpawnPoop(world: World, d: { x: number; y: number; enclosureId: st
 }
 
 export { stepToward };
+
+export function getMaturity(d: Pick<Dino, 'birthTick'>, sp: Species, tick: number): number {
+  const monthTicks = config.time.dayTicks * config.time.monthDays;
+  const ageTicks = Math.max(0, tick - d.birthTick);
+  const ageMonths = ageTicks / monthTicks;
+  if (sp.monthsToMaturity <= 0) return 1;
+  return Math.min(1, ageMonths / sp.monthsToMaturity);
+}
+
+export function getLifespanTicks(d: Pick<Dino, 'dnaPercentAtHatch'>, sp: Species): number {
+  const yearTicks = config.time.dayTicks * config.time.monthDays * 12;
+  const genomeFraction = Math.max(0, Math.min(1, d.dnaPercentAtHatch / 100));
+  return sp.lifeSpanYears * genomeFraction * genomeFraction * yearTicks;
+}

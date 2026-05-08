@@ -12,6 +12,10 @@ export interface Species {
   coexistsWith: string[];
   // Probability (0–1) of leaving a poop on the cell when finishing a wander leg.
   poopChance: number;
+  // In-game months from hatch to 100% maturity (linear growth).
+  monthsToMaturity: number;
+  // Lifespan in in-game years assuming 100% genome. Actual lifespan scales with genomeFraction^2.
+  lifeSpanYears: number;
 }
 
 export const SPECIES: Species[] = [
@@ -22,12 +26,14 @@ export const SPECIES: Species[] = [
     portraitPath: '/assets/portraits/allosaurus.png',
     spaceNeeded: 12,
     eatAmount: 40,
-    satiationDropRate: 0.15,
+    satiationDropRate: 0.3,
     baseSpeed: 24,
     wanderFreq: 6,
     diet: 'carnivore',
     coexistsWith: ['utahraptor'],
     poopChance: 0.15,
+    monthsToMaturity: 24,
+    lifeSpanYears: 6,
   },
   {
     id: 'stegosaurus',
@@ -36,12 +42,14 @@ export const SPECIES: Species[] = [
     portraitPath: '/assets/portraits/stegosaurus.png',
     spaceNeeded: 10,
     eatAmount: 50,
-    satiationDropRate: 0.10,
-    baseSpeed: 18,
+    satiationDropRate: 0.5,
+    baseSpeed: 14,
     wanderFreq: 8,
     diet: 'herbivore',
     coexistsWith: [],
     poopChance: 0.10,
+    monthsToMaturity: 36,
+    lifeSpanYears: 6,
   },
   {
     id: 'utahraptor',
@@ -56,6 +64,8 @@ export const SPECIES: Species[] = [
     diet: 'carnivore',
     coexistsWith: ['allosaurus'],
     poopChance: 0.12,
+    monthsToMaturity: 12,
+    lifeSpanYears: 4,
   },
 ];
 
